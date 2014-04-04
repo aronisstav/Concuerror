@@ -1246,6 +1246,8 @@ system_wrapper_loop(Name, Wrapped, Info) ->
   system_wrapper_loop(Name, Wrapped, Info).
 
 check_fileserver_request({get_cwd}) -> ok;
+check_fileserver_request({read_file_info,_}) -> ok;
+check_fileserver_request({read_file,_}) -> ok;
 check_fileserver_request(Other) ->
   ?crash({unsupported_fileserver, element(1,Other)}).
 
@@ -1416,7 +1418,6 @@ explain_error({unknown_built_in, {Module, Name, Arity}}) ->
 explain_error({unsupported_fileserver, Type}) ->
   io_lib:format(
     "A process send a request of type '~p' to the fileserver. This type of"
-    " request has not been checked to ensure it always returns the same"
-    " result.~n"
+    " request is not yet supported by Concuerror.~n"
     ?notify_us_msg,
     [Type]).
