@@ -705,14 +705,14 @@ more_interleavings_for_event([TraceState|Rest], Event, Later, Clock, State,
         case Dependent of
           false -> none;
           irreversible ->
-            NC = max_cv(lookup_clock(EarlyActor, EarlyClockMap), Clock),
+            NC = further_clock(EarlyActor, EarlyIndex, EarlyClockMap, Clock),
             {update_clock, NC};
           true ->
             ?debug(Logger, "   races with ~s~n",
                    [?pretty_s(EarlyIndex, EarlyEvent)]),
-            NC = max_cv(lookup_clock(EarlyActor, EarlyClockMap), Clock),
+            NC = further_clock(EarlyActor, EarlyIndex, EarlyClockMap, Clock),
             case
-              update_trace(Event, TraceState, Later, NewOldTrace, State)
+              update_trace(Event, Clock, TraceState, Later, NewOldTrace, State)
             of
               skip -> {update_clock, NC};
               UpdatedNewOldTrace ->
@@ -741,17 +741,22 @@ more_interleavings_for_event([TraceState|Rest], Event, Later, Clock, State,
     end,
   more_interleavings_for_event(Rest, Event, Later, NewClock, State, NewTrace).
 
-update_trace(Event, TraceState, Later, NewOldTrace, State) ->
+further_clock(EarlyActor, EarlyIndex, EarlyClockMap, Clock) ->
+  Max = max_cv(lookup_clock(EarlyActor, EarlyClockMap), Clock),
+  orddict:store(EarlyActor, EarlyIndex, Max).
+
+update_trace(Event, Clock, TraceState, Later, NewOldTrace, State) ->
   #scheduler_state{logger = Logger, optimal = Optimal} = State,
   #trace_state{
-     done = [#event{actor = EarlyActor}|Done],
+     done = [_|Done],
      delay_bound = DelayBound,
      index = EarlyIndex,
      sleeping = Sleeping,
      wakeup_tree = WakeupTree
     } = TraceState,
-  NotDep = not_dep(NewOldTrace, Later, EarlyActor, EarlyIndex, Event),
-  case insert_wakeup(Sleeping ++ Done, WakeupTree, NotDep, Optimal) of
+  {Initials, Preds} =
+    initials_and_preds(TraceState, NewOldTrace, Event, Clock, Later),
+  case insert_wakeup(Sleeping ++ Done, WakeupTree, Initials, Preds, Optimal) of
     skip ->
       ?debug(Logger, "     SKIP~n",[]),
       skip;
@@ -761,7 +766,7 @@ update_trace(Event, TraceState, Later, NewOldTrace, State) ->
         (DelayBound - length(Done ++ WakeupTree) > 0)
       of
         true ->
-          trace_plan(Logger, EarlyIndex, NotDep),
+          trace_plan(Logger, EarlyIndex, Preds),
           NS = TraceState#trace_state{wakeup_tree = NewWakeupTree},
           [NS|NewOldTrace];
         false ->
@@ -773,35 +778,80 @@ update_trace(Event, TraceState, Later, NewOldTrace, State) ->
       end
   end.
 
-not_dep(Trace, Later, Actor, Index, Event) ->
-  not_dep(Trace, Later, Actor, Index, Event, []).
+initials_and_preds(EarlyTraceState, BetweenTrace, LateEvent, LateEventClock,
+                   Later) ->
+  #trace_state{
+     done = [#event{actor = EarlyActor}|_],
+     index = EarlyIndex
+    } = EarlyTraceState,
+  InitialClock = orddict:store(EarlyActor, EarlyIndex, orddict:new()),
+  initials_and_preds(BetweenTrace, LateEvent, LateEventClock, Later,
+                     InitialClock, [], []).
 
-not_dep([], [], _Actor, _Index, Event, NotDep) ->
-  %% The racing event's effect may differ, so new label.
-  lists:reverse([Event#event{label = undefined}|NotDep]);
-not_dep([], T, Actor, Index, Event, NotDep) ->
-  not_dep(T,  [], Actor, Index, Event, NotDep);
-%% %% This is a reasonable (but unproven) optimisation for filtering the wakeup
-%% %% sequence...
-%% not_dep([], [#trace_state{sleeping=S} = H|T], Actor, Index, Event, NotDep) ->
-%%   case S =:= [] of
-%%     true  -> not_dep( [], [], Actor, Index, Event, NotDep);
-%%     false -> not_dep([H],  T, Actor, Index, Event, NotDep)
-%%   end;
-not_dep([TraceState|Rest], Later, Actor, Index, Event, NotDep) ->
+initials_and_preds([], LateEvent, LateEventClock, Later, InitialClock, Initials,
+         Preds) ->
+  #event{actor = LateActor} = LateEvent,
+  LateIndex = lookup_clock_value(LateActor, LateEventClock),
+  {NewInitials, NewInitialClock} =
+    case Preds =:= [] of
+      true ->
+        {[LateEvent|Initials], orddict:store(LateActor, LateIndex, InitialClock)};
+      false ->
+        {Initials, InitialClock}
+    end,
+  FinalInitials = initials(Later, NewInitialClock, NewInitials),
+  {FinalInitials, lists:reverse([LateEvent#event{label = undefined}|Preds])};
+initials_and_preds([TraceState|BetweenTrace], LateEvent, LateEventClock, Later,
+         InitialClock, Initials, Preds) ->
   #trace_state{
      clock_map = ClockMap,
-     done = [#event{actor = LaterActor} = LaterEvent|_]
+     done = [#event{actor = Actor} = Event|_],
+     index = Index
     } = TraceState,
-  LaterClock = lookup_clock(LaterActor, ClockMap),
-  ActorLaterClock = lookup_clock_value(Actor, LaterClock),
-  NewNotDep =
-    case Index > ActorLaterClock of
-      false -> NotDep;
-      true -> [LaterEvent|NotDep]
+  NewPreds =
+    case happens_before(Actor, Index, LateEventClock) of
+      true -> [Event|Preds];
+      false -> Preds
     end,
-  not_dep(Rest, Later, Actor, Index, Event, NewNotDep).
+  Clock = lookup_clock(Actor, ClockMap),
+  {NewInitials, NewInitialClock} =
+    case is_initial(Clock, InitialClock) of
+      true ->
+        {[Event|Initials], orddict:store(Actor, Index, InitialClock)};
+      false -> {Initials, InitialClock}
+    end,
+  initials_and_preds(BetweenTrace, LateEvent, LateEventClock, Later,
+                     NewInitialClock, NewInitials, NewPreds).
 
+initials([], _, Initials) ->
+  Initials;
+initials([TraceState|Later], InitialClock, Initials) ->
+  #trace_state{
+     clock_map = ClockMap,
+     done = [#event{actor = Actor} = Event|_],
+     index = Index
+    } = TraceState,
+  Clock = lookup_clock(Actor, ClockMap),
+  {NewInitials, NewInitialClock} =
+    case is_initial(Clock, InitialClock) of
+      true ->
+        {[Event|Initials], orddict:store(Actor, Index, InitialClock)};
+      false ->
+        {Initials, InitialClock}
+    end,
+  initials(Later, NewInitialClock, NewInitials).
+
+happens_before(Actor, Index, LateEventClock) ->
+  lookup_clock_value(Actor, LateEventClock) >= Index.
+
+is_initial(Clock, InitialClock) ->
+  MergeFun = fun(_, Init, Mine) -> true = Mine < Init end,
+  try
+    orddict:merge(MergeFun, InitialClock, Clock),
+    true
+  catch
+    _:_ -> false
+  end.
 
 trace_plan(_Logger, _Index, _NotDep) ->
   ?debug(
@@ -814,14 +864,12 @@ trace_plan(_Logger, _Index, _NotDep) ->
            || {I,S} <- IndexedNotDep])]
      end).
 
-insert_wakeup(Sleeping, Wakeup, [E|_] = NotDep, Optimal) ->
-  case Optimal of
-    true -> insert_wakeup(Sleeping, Wakeup, NotDep);
+insert_wakeup(Sleeping, Wakeup, Initials, [E|_] = Preds, Optimal) ->
+  case existing(Sleeping, Initials) of
+    true -> skip;
     false ->
-      Initials = get_initials(NotDep),
-      All = Sleeping ++ [W || {W, []} <- Wakeup],
-      case existing(All, Initials) of
-        true -> skip;
+      case Optimal of
+        true -> insert_wakeup(Sleeping, Wakeup, Preds);
         false -> Wakeup ++ [{E,[]}]
       end
   end.      
@@ -871,23 +919,6 @@ check_initial(Event, [E|NotDep], Acc) ->
         false -> check_initial(Event, NotDep, [E|Acc])
       end
   end.
-
-get_initials(NotDeps) ->
-  get_initials(NotDeps, [], []).
-
-get_initials([], Initials, _) -> lists:reverse(Initials);
-get_initials([Event|Rest], Initials, All) ->
-  Fold =
-    fun(Initial, Acc) ->
-        Acc andalso
-          concuerror_dependencies:dependent_safe(Initial, Event) =:= false
-    end,
-  NewInitials =
-    case lists:foldr(Fold, true, All) of
-      true -> [Event|Initials];
-      false -> Initials
-    end,
-  get_initials(Rest, NewInitials, [Event|All]).            
 
 existing([], _) -> false;
 existing([#event{actor = A}|Rest], Initials) ->
