@@ -100,6 +100,11 @@
 -define(notify_us_msg,
         "~nPlease notify the developers, as this is a bug of Concuerror.").
 %%------------------------------------------------------------------------------
+-type conservative_backtrack_info() :: ets:tid().
+
+-define(needed_conservative_backtrack(Id), {Id, true}).
+-define(conservative_backtrack_needed, 2).
+%%------------------------------------------------------------------------------
 -type message_info() :: ets:tid().
 -type timers()       :: ets:tid().
 

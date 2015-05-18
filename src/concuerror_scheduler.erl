@@ -26,10 +26,14 @@
 %% DATA STRUCTURES
 %% =============================================================================
 
+-type backtrack_ref() :: reference().
+
 -record(backtrack_entry, {
+          conservative    = false :: 'false' | [backtrack_ref()],
+          conservative_dep = none :: 'none' | backtrack_ref(),
           event                   :: event(),
-          origin = 1              :: integer(),
-          wakeup_tree = []        :: event_tree()
+          origin           = 1    :: integer(),
+          wakeup_tree      = []   :: event_tree()
          }).
 
 -type channel_actor() :: {channel(), message_event_queue()}.
@@ -38,6 +42,7 @@
 -record(trace_state, {
           actors           = []         :: [pid() | channel_actor()],
           clock_map        = dict:new() :: clock_map(),
+          conservative_dep = []         :: [backtrack_ref()],
           done             = []         :: [event()],
           index            = 1          :: index(),
           graph_ref        = make_ref() :: reference(),
@@ -53,6 +58,7 @@
           ignore_first_crash = true    :: boolean(),
           assume_racing      = true    :: boolean(),
           bound_consumed     = 0       :: non_neg_integer(),
+          conservative_backtrack_info  :: conservative_backtrack_info(),
           current_graph_ref            :: reference(),
           current_warnings   = []      :: [concuerror_warning_info()],
           depth_bound                  :: pos_integer(),
@@ -98,12 +104,13 @@ run(Options) ->
       },
   InitialState =
     #scheduler_state{
-       ignore_first_crash = ?opt(ignore_first_crash, Options),
        assume_racing = ?opt(assume_racing, Options),
+       conservative_backtrack_info = ets:new(conservative_backtrack, [private]),
        depth_bound = ?opt(depth_bound, Options),
        entry_point = EntryPoint = ?opt(entry_point, Options),
        first_process = FirstProcess,
        ignore_error = ?opt(ignore_error, Options),
+       ignore_first_crash = ?opt(ignore_first_crash, Options),
        interleaving_bound = ?opt(interleaving_bound, Options),
        keep_going = ?opt(keep_going, Options),
        last_scheduled = FirstProcess,
@@ -124,7 +131,7 @@ run(Options) ->
       },
   ok = concuerror_callback:start_first_process(FirstProcess, EntryPoint, Timeout),
   concuerror_logger:plan(Logger),
-  ?time(Logger, "Exploration start"),
+  ?time(Logger, "New interleaving 1."),
   explore(InitialState).
 
 %%------------------------------------------------------------------------------
@@ -139,9 +146,14 @@ explore(State) ->
   case Status of
     ok -> explore(UpdatedState);
     none ->
-      RacesDetectedState = plan_more_interleavings(UpdatedState),
-      LogState = log_trace(RacesDetectedState),
-      {HasMore, NewState} = has_more_to_explore(LogState),
+      FinalState =
+        case UpdatedState#scheduler_state.need_to_replay of
+          false ->
+            RacesDetectedState = plan_more_interleavings(UpdatedState),
+            log_trace(RacesDetectedState);
+          true -> UpdatedState
+        end,
+      {HasMore, NewState} = has_more_to_explore(FinalState),
       case HasMore of
         true -> explore(NewState);
         false -> ok
@@ -246,14 +258,34 @@ get_next_event(
   ?unique(Logger, ?lwarning, UniqueMsg, [Bound]),
   NewState = add_warning({depth_bound, Bound}, Old, State),
   {none, NewState};
-get_next_event(#scheduler_state{logger = Logger, trace = [Last|_]} = State) ->
+get_next_event(#scheduler_state{logger = Logger, trace = [Last|Prev]} = State) ->
   #trace_state{wakeup_tree = WakeupTree} = Last,
   case WakeupTree of
     [] ->
       Event = #event{label = make_ref()},
       get_next_event(Event, State);
-    [#backtrack_entry{event = Event, origin = N}|_] ->
-      ?log(Logger, ?ldebug,"By: ~p~n", [N]),
+    [#backtrack_entry{conservative = Conservative} = Entry|Rest]
+      when Conservative =/= false ->
+      Pred = fun(Ref) -> conservative_is_needed(Ref, State) end,
+      case lists:any(Pred, Conservative) of
+        true ->
+          #backtrack_entry{event = Event, origin = _N} = Entry,
+          ?debug(
+             Logger,
+             "Event conservatively planned by a race detected in interleaving"
+             " ~p~n", [_N]),
+          get_next_event(Event, State);
+        false ->
+          ?debug(Logger, "Skipping conservative ~p~n", [Conservative]),
+          concuerror_logger:skip_conservative(Logger),
+          NewLast = Last#trace_state{wakeup_tree = Rest},
+          NewState = State#scheduler_state{trace = [NewLast|Prev]},
+          {none, NewState}
+      end;
+    [#backtrack_entry{event = Event, origin = _N}|_] ->
+      ?debug(
+         Logger,
+         "Event planned by a race detected in interleaving ~p~n", [_N]),
       get_next_event(Event, State)
   end.
 
@@ -381,7 +413,7 @@ free_schedule(Event, [P|ActiveProcesses], State) ->
   end;
 free_schedule(_Event, [], State) ->
   %% Nothing to do, trace is completely explored
-  #scheduler_state{logger = Logger, trace = [Last|Prev]} = State,
+  #scheduler_state{exploring = _I, logger = Logger, trace = [Last|Prev]} = State,
   #trace_state{actors = Actors, sleeping = Sleeping} = Last,
   NewWarnings =
     case Sleeping =/= [] of
@@ -397,6 +429,7 @@ free_schedule(_Event, [], State) ->
             [{deadlock, Info}]
         end
     end,
+  ?debug(Logger, "Interleaving ~p completed.~n", [_I]),
   {none, add_warnings(NewWarnings, Prev, State)}.
 
 reset_event(#event{actor = Actor, event_info = EventInfo}) ->
@@ -428,27 +461,35 @@ update_state(#event{special = Special} = Event, State) ->
      sleeping    = Sleeping,
      wakeup_tree = WakeupTree
     } = Last,
+  ?trace(Logger, "~s~n", [?pretty_s(Index, Event)]),
+  concuerror_logger:graph_new_node(Logger, Ref, Index, Event, BoundConsumed),
   SchedulingBound =
     case Prev of
       [] -> Last#trace_state.scheduling_bound;
       [P|_] -> P#trace_state.scheduling_bound
     end,
-  ?trace(Logger, "~s~n", [?pretty_s(Index, Event)]),
-  concuerror_logger:graph_new_node(Logger, Ref, Index, Event, BoundConsumed),
-  AllSleeping = ordsets:union(ordsets:from_list(Done), Sleeping),
-  NextSleeping = update_sleeping(Event, AllSleeping, State),
-  {NewLastWakeupTree, NextWakeupTree} =
-    case WakeupTree of
-      [] -> {[], []};
-      [#backtrack_entry{wakeup_tree = NWT}|Rest] -> {Rest, NWT}
-    end,
-  NewLastDone = [Event|Done],
   NewSchedulingBound =
     case BoundConsumed =:= 0 of
       true -> SchedulingBound;
       false -> SchedulingBound - BoundConsumed
     end,
-  ?debug(Logger, " PWE:~p BOUND:~p~n", [PreviousWasEnabled, NewSchedulingBound]),
+  ?trace(Logger, " PWE:~p BOUND:~p~n", [PreviousWasEnabled, NewSchedulingBound]),
+  {NewLastWakeupTree, NextWakeupTree} =
+    case WakeupTree of
+      [#backtrack_entry{wakeup_tree = NWT}|Rest] -> {Rest, NWT};
+      [] -> {[], []}
+    end,
+  NextSleeping = 
+    case WakeupTree of
+      [#backtrack_entry{conservative = Conservative}|_]
+        when Conservative =/= false ->
+        ?debug(Logger, " WUT:~n ~p~n", [WakeupTree]),
+        [];
+      _ ->
+        AllSleeping = ordsets:union(ordsets:from_list(Done), Sleeping),
+        update_sleeping(Event, AllSleeping, State)
+    end,
+  NewLastDone = [Event|Done],
   InitNextTrace =
     #trace_state{
        actors      = Actors,
@@ -732,7 +773,6 @@ plan_more_interleavings([], OldTrace, _SchedulerState) ->
   OldTrace;
 plan_more_interleavings([TraceState|Rest], OldTrace, State) ->
   #scheduler_state{
-     logger = _Logger,
      message_info = MessageInfo,
      non_racing_system = NonRacingSystem
     } = State,
@@ -758,7 +798,6 @@ plan_more_interleavings([TraceState|Rest], OldTrace, State) ->
             message_clock(Id, MessageInfo, ActorClock);
           false -> ActorClock
         end,
-      ?debug(_Logger, "~s~n", [?pretty_s(Index, Event)]),
       GState = State#scheduler_state{current_graph_ref = Ref},
       BaseNewOldTrace =
         more_interleavings_for_event(OldTrace, Event, Rest, BaseClock, GState, Index),
@@ -774,7 +813,7 @@ more_interleavings_for_event([], _Event, _Later, _Clock, _State, _Index,
   lists:reverse(NewOldTrace);
 more_interleavings_for_event([TraceState|Rest], Event, Later, Clock, State,
                              Index, NewOldTrace) ->
-  #scheduler_state{logger = Logger} = State,
+  #scheduler_state{logger = _Logger} = State,
   #trace_state{
      clock_map = EarlyClockMap,
      done = [#event{actor = EarlyActor} = EarlyEvent|_],
@@ -789,17 +828,17 @@ more_interleavings_for_event([TraceState|Rest], Event, Later, Clock, State,
           concuerror_dependencies:dependent_safe(EarlyEvent, Event),
         case Dependent of
           false -> none;
-          irreversible -> update_clock;
+          irreversible -> {update_clock, Rest};
           true ->
-            ?debug(Logger, "   races with ~s~n",
+            ?debug(_Logger, "~s~n", [?pretty_s(Index, Event)]),
+            ?debug(_Logger, "   races with ~s~n",
                    [?pretty_s(EarlyIndex, EarlyEvent)]),
-            case
-              update_trace(Event, TraceState, Later, NewOldTrace, State)
-            of
-              skip -> update_clock;
-              UpdatedNewOldTrace ->
-                concuerror_logger:plan(Logger),
-                {update, UpdatedNewOldTrace}
+            {Update, Conservative} =
+              add_backtrack(Event, TraceState, Later, NewOldTrace, State),
+            NRest = add_conservative(Rest, EarlyActor, Event, Conservative, State),
+            case Update =:= skip of
+              true -> {update_clock, NRest};
+              false -> {update, Update, NRest}
             end
         end
     end,
@@ -807,27 +846,20 @@ more_interleavings_for_event([TraceState|Rest], Event, Later, Clock, State,
   {NewRest, NewClock, NewTrace} =
     case Action of
       none -> {Rest, Clock, [TraceState|NewOldTrace]};
-      update_clock -> {Rest, NC, [TraceState|NewOldTrace]};
-      {update, S} ->
-        if State#scheduler_state.show_races ->
-            EarlyRef = TraceState#trace_state.graph_ref,
-            Ref = State#scheduler_state.current_graph_ref,
-            concuerror_logger:graph_race(Logger, EarlyRef, Ref),
-            IndexedEarly = {EarlyIndex, EarlyEvent#event{location = []}},
-            IndexedLate ={Index, Event#event{location = []}},
-            concuerror_logger:race(Logger, IndexedEarly, IndexedLate);
-           true ->
-            ?unique(Logger, ?linfo, msg(show_races), [])
-        end,
-        {Rest, NC, S}
+      {update_clock, NR} ->
+        graph_race(Event, Index, TraceState, State, "orange"),
+        {NR, NC, [TraceState|NewOldTrace]};
+      {update, S, NR} ->
+        graph_race(Event, Index, TraceState, State, "red"),
+        {NR, NC, S}
     end,
   more_interleavings_for_event(NewRest, Event, Later, NewClock, State, Index, NewTrace).
 
-update_trace(Event, TraceState, Later, NewOldTrace, State) ->
+add_backtrack(Event, TraceState, Later, NewOldTrace, State) ->
   #scheduler_state{
-     exploring = Exploring,
      logger = Logger,
-     optimal = Optimal
+     optimal = Optimal,
+     scheduling_bound_type = SchedulingBoundType
     } = State,
   #trace_state{
      done = [#event{actor = EarlyActor}|Done],
@@ -836,26 +868,65 @@ update_trace(Event, TraceState, Later, NewOldTrace, State) ->
      sleeping = Sleeping,
      wakeup_tree = WakeupTree
     } = TraceState,
+  Cost =
+    case SchedulingBoundType of
+      none -> 0;
+      delay -> length(Done ++ WakeupTree);
+      preemption ->
+        case TraceState#trace_state.previous_was_enabled of
+          true -> 1;
+          false -> 0
+        end
+    end,
+  AddHere =
+    (SchedulingBoundType =:= none) orelse (SchedulingBound - Cost > -1),
+  AddConservative =
+    (SchedulingBoundType =:= preemption) andalso (Cost > 0),
   NotDep = not_dep(NewOldTrace, Later, EarlyActor, EarlyIndex, Event),
-  case insert_wakeup(Sleeping ++ Done, WakeupTree, NotDep, Optimal, Exploring) of
+  InsertWakeupFlag =
+    case Optimal of
+      true -> optimal;
+      false ->
+        ?debug(
+           Logger,
+           "    BOUND: ~p, RESCHEDULING COST: ~p~n",
+           [SchedulingBound, Cost]),
+        case AddConservative of
+          true -> needs_conservative;
+          false -> none
+        end
+    end,
+  case insert_wakeup(Sleeping ++ Done, WakeupTree, NotDep, InsertWakeupFlag, State) of
     skip ->
       ?debug(Logger, "     SKIP~n",[]),
-      skip;
-    NewWakeupTree ->
-      case
-        (SchedulingBound =:= infinity) orelse
-        (SchedulingBound - length(Done ++ WakeupTree) > 0)
-      of
-        true ->
-          trace_plan(Logger, EarlyIndex, NotDep),
-          NS = TraceState#trace_state{wakeup_tree = NewWakeupTree},
-          [NS|NewOldTrace];
-        false ->
-          Message = msg(reached_scheduling_bound),
-          ?unique(Logger, ?lwarning, Message, []),
-          ?debug(Logger, "     OVER BOUND~n",[]),
-          skip
-      end
+      {skip, none};
+    {NewWakeupTree, ConservativeInfo} ->
+      NewTrace =
+        case AddHere of
+          true ->
+            case Optimal orelse  length(WakeupTree) =/= length(NewWakeupTree) of
+              true ->
+                concuerror_logger:plan(Logger);
+              false -> ok
+            end,
+            print_trace(Logger, EarlyIndex, NotDep),
+            NS = TraceState#trace_state{wakeup_tree = NewWakeupTree},
+            [NS|NewOldTrace];
+          false ->
+            Format =
+              "Some interleavings were not considered due to ~p bounding.~n",
+            Message = io_lib:format(Format,[SchedulingBoundType]),
+            ?unique(Logger, ?lwarning, Message, []),
+            ?debug(Logger, "     OVER BOUND~n",[]),
+            case ConservativeInfo of
+              none -> ok;
+              {Ref, _} ->
+                ?debug(Logger, "     Conservative needed ~p~n", [Ref]),
+                mark_conservatives_as_needed([Ref], State)
+            end,
+            skip
+        end,
+      {NewTrace, ConservativeInfo}
   end.
 
 not_dep(Trace, Later, Actor, Index, Event) ->
@@ -887,34 +958,77 @@ not_dep([TraceState|Rest], Later, Actor, Index, Event, NotDep) ->
     end,
   not_dep(Rest, Later, Actor, Index, Event, NewNotDep).
 
-
-trace_plan(_Logger, _Index, _NotDep) ->
+print_trace(_Logger, _Index, _NotDep) ->
   ?debug(
-     _Logger, "     PLAN~n~s",
+     _Logger, "     Adding normal backtrack~n~s",
      begin
        Indices = lists:seq(_Index, _Index + length(_NotDep) - 1),
        IndexedNotDep = lists:zip(Indices, _NotDep),
        [lists:append(
-          [io_lib:format("        ~s~n", [?pretty_s(I,S)])
+          [io_lib:format("     ~s~n", [?pretty_s(I,S)])
            || {I,S} <- IndexedNotDep])]
      end).
 
-insert_wakeup(Sleeping, Wakeup, [E|_] = NotDep, Optimal, Exploring) ->
-  case Optimal of
-    true -> insert_wakeup(Sleeping, Wakeup, NotDep, Exploring);
+graph_race(Event, Index, TraceState, State, Color) ->
+  #scheduler_state{
+     current_graph_ref = Ref,
+     logger = Logger,
+     show_races = ShowRaces
+    } = State,
+  if ShowRaces ->
+      #trace_state{
+         graph_ref = EarlyRef,
+         index = EarlyIndex,
+         done = [EarlyEvent|_]
+        } = TraceState,
+      concuerror_logger:graph_race(Logger, EarlyRef, Ref, Color),
+      IndexedEarly = {EarlyIndex, EarlyEvent#event{location = []}},
+      IndexedLate = {Index, Event#event{location = []}},
+      concuerror_logger:race(Logger, IndexedEarly, IndexedLate);
+     true ->
+      ?unique(Logger, ?linfo, msg(show_races), [])
+  end.
+
+insert_wakeup(Sleeping, Wakeup, NotDep, Flag, State) ->
+  #scheduler_state{
+     exploring = Exploring,
+     logger = Logger
+    } = State,
+  case Flag =:= optimal of
+    true ->
+      Result = insert_wakeup(Sleeping, Wakeup, NotDep, Exploring),
+      case Result =:= skip of
+        true -> Result;
+        false ->
+          concuerror_logger:plan(Logger),
+          {Result, none}
+      end;
     false ->
       Initials = get_initials(NotDep),
-      All =
-        Sleeping ++
-        [W || #backtrack_entry{event = W, wakeup_tree = []} <- Wakeup],
-      case existing(All, Initials) of
+      print_set(Logger, "Initials", Initials),
+      print_set(Logger, "Sleeping", Sleeping),
+      case existing(Sleeping, Initials) of
         true -> skip;
         false ->
-          Entry =
-            #backtrack_entry{event = E, origin = Exploring, wakeup_tree = []},
-          Wakeup ++ [Entry]
+          {Ref, ConservativeInfo} =
+            case Flag =:= needs_conservative of
+              true ->
+                R = make_ref(),
+                {R, {R, Initials}};
+              false -> {none, none}
+            end,
+          NewWakeup = add_or_promote(Wakeup, Ref, State, Initials),
+          {NewWakeup, ConservativeInfo}
       end
-  end.      
+  end.   
+
+print_set(_Logger, _Name, _Set) ->
+  ?debug(
+     _Logger,
+     "     ~s:~n~s",
+     [_Name,
+      lists:append(
+        [io_lib:format("      ~s~n",[?pretty_s(Ev)]) || Ev <- _Set])]).
 
 insert_wakeup([Sleeping|Rest], Wakeup, NotDep, Exploring) ->
   case check_initial(Sleeping, NotDep) =:= false of
@@ -999,6 +1113,118 @@ existing([#event{actor = A}|Rest], Initials) ->
     true -> true;
     false -> existing(Rest, Initials)
   end.  
+
+%%------------------------------------------------------------------------------
+
+add_or_promote(Wakeup, Ref, State, Initials) ->
+  add_or_promote(Wakeup, Ref, State, Initials, []).
+
+add_or_promote([], Ref, State, [E|_], Acc) ->
+  #scheduler_state{exploring = Exploring} = State,
+  Entry =
+    #backtrack_entry{
+       conservative_dep = Ref,
+       event = E,
+       origin = Exploring,
+       wakeup_tree = []},
+  lists:reverse([Entry|Acc]);
+add_or_promote([Entry|Rest], Ref, Exploring, Initials, Acc) ->
+  #backtrack_entry{event = #event{actor = A}} = Entry,
+  Pred = fun(#event{actor = B}) -> A =:= B end,
+  case lists:any(Pred, Initials) of
+    true ->
+      NewEntry = Entry#backtrack_entry{conservative = false},
+      lists:reverse(Acc, [NewEntry|Rest]);
+    false ->
+      add_or_promote(Rest, Ref, Exploring, Initials, [Entry|Acc])
+  end.
+
+add_conservative(Rest, _Actor, _Event, none, _State) ->
+  Rest;
+add_conservative(Rest, Actor, Event, {Ref, Initials}, State) ->
+  #scheduler_state{logger = _Logger} = State,
+  ?debug(_Logger, "     Adding conservative backtrack ~p~n", [Ref]),
+  add_conservative(Rest, Actor, Event, Ref, Initials, State, []).
+
+%% Shouldn't reach the top, but naively trying not to preempt may lead here.
+add_conservative([], _Actor, _Event, _Ref, _Initials, _State, Newer) ->
+  lists:reverse(Newer);
+add_conservative(Old, Actor, Event, Ref, Initials, State, Newer) ->
+  [TraceState|[Prev|_]=Rest] = Old,
+  #scheduler_state{logger = _Logger} = State,
+  #trace_state{done = [#event{actor = EarlyActor}|_]} = Prev,
+  #trace_state{
+     done = Done,
+     index = _Index,
+     sleeping = Sleeping,
+     wakeup_tree = WakeupTree
+    } = TraceState,
+  case EarlyActor =/= Actor of
+    false ->
+      UpdNewer = [TraceState|Newer],
+      add_conservative(Rest, Actor, Event, Ref, Initials, State, UpdNewer);
+    true ->
+      ?debug(_Logger, "      Possible at ~p~n", [_Index + 1]),
+      case existing(Sleeping ++ Done, Initials) of
+        true ->
+          ?debug(_Logger, "       Initial sleeping at ~p.~n", [_Index + 1]),
+          lists:reverse(Newer, Old);
+        false ->
+          NewWakeupTree =
+            add_conservative_wakeup(WakeupTree, [Event], Ref, State),
+          NewTraceState =
+            TraceState#trace_state{wakeup_tree = NewWakeupTree},
+          lists:reverse(Newer, [NewTraceState|Rest])
+      end
+  end.
+
+add_conservative_wakeup(WakeupTree, Initials, Ref, State) ->
+  add_conservative_wakeup(WakeupTree, Initials, Ref, State, []).
+
+add_conservative_wakeup([], [E|_], Ref, State, Acc) ->
+  #scheduler_state{exploring = Exploring, logger = Logger} = State,
+  concuerror_logger:plan(Logger),
+  ?debug(Logger, "       Adding new: ~s~n", [?pretty_s(E)]),
+  Entry =
+    #backtrack_entry{
+       conservative = [Ref],
+       event = E#event{label = undefined},
+       origin = Exploring,
+       wakeup_tree = []},
+  lists:reverse([Entry|Acc]);
+add_conservative_wakeup([Entry|Rest] = WakeupTree, Initials, Ref, State, Acc) ->
+  #scheduler_state{logger = _Logger} = State,
+  #backtrack_entry{
+     conservative = Conservative,
+     event = E,
+     wakeup_tree = []
+    } = Entry,
+  case existing([E], Initials) of
+    true ->
+      case Conservative =:= false of
+        true ->
+          ?debug(_Logger, "       Non-conservative exists~n", []),
+          lists:reverse(Acc, WakeupTree);
+        false ->
+          ?debug(_Logger, "       Adding to existing conservative~n", []),
+          NewEntry = Entry#backtrack_entry{conservative = [Ref|Conservative]},
+          lists:reverse(Acc, [NewEntry|Rest])
+      end;
+    false ->
+      add_conservative_wakeup(Rest, Initials, Ref, State, [Entry|Acc])
+  end.
+
+conservative_is_needed(Ref, State) ->
+  #scheduler_state{conservative_backtrack_info = Info} = State,
+  try
+    true = ets:lookup_element(Info, Ref, ?conservative_backtrack_needed)
+  catch
+    _:_ -> false
+  end.      
+
+mark_conservatives_as_needed(Refs, State) ->
+  #scheduler_state{conservative_backtrack_info = Info} = State,
+  ets:insert(Info, [?needed_conservative_backtrack(R) || R <- Refs]).
 
 %%------------------------------------------------------------------------------
 

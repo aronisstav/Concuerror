@@ -3,7 +3,8 @@
 -module(concuerror_logger).
 
 -export([start/1, complete/2, plan/1, log/5, race/3, stop/2, print/3, time/2]).
--export([graph_set_node/3, graph_new_node/5, graph_race/3]).
+-export([skip_conservative/1]).
+-export([graph_set_node/3, graph_new_node/5, graph_race/4]).
 
 -include("concuerror.hrl").
 
@@ -58,6 +59,7 @@ timediff(After, Before) ->
           streams = []                 :: [{stream(), [string()]}],
           timestamp = timestamp()      :: timestamp(),
           ticker = none                :: pid() | 'none' | 'show',
+          traces_conservative_skip = 0 :: non_neg_integer(),
           traces_explored = 0          :: non_neg_integer(),
           traces_ssb = 0               :: non_neg_integer(),
           traces_total = 0             :: non_neg_integer(),
@@ -164,6 +166,12 @@ race(Logger, EarlyEvent, Event) ->
   Logger ! {race, EarlyEvent, Event},
   ok.
 
+-spec skip_conservative(logger()) -> ok.
+
+skip_conservative(Logger) ->
+  Logger ! skip_conservative,
+  ok.
+  
 %%------------------------------------------------------------------------------
 
 loop_entry(State) ->
@@ -223,6 +231,7 @@ loop(Message, State) ->
      streams = Streams,
      ticker = Ticker,
      timestamp = Timestamp,
+     traces_conservative_skip = TracesSkip,
      traces_explored = TracesExplored,
      traces_ssb = TracesSSB,
      traces_total = TracesTotal,
@@ -296,6 +305,14 @@ loop(Message, State) ->
       NewState = State#logger_state{traces_total = TracesTotal + 1},
       FinalState = update_on_ticker(NewState),
       loop(FinalState);
+    skip_conservative ->
+      NewState =
+        State#logger_state{
+          traces_conservative_skip = TracesSkip + 1,
+          traces_total = TracesTotal - 1
+         },
+      FinalState = update_on_ticker(NewState),
+      loop(FinalState);
     {print, Type, String} ->
       NewStreams = orddict:append(Type, String, Streams),
       NewState = State#logger_state{streams = NewStreams},
@@ -327,7 +344,7 @@ loop(Message, State) ->
           false -> TracesSSB
         end,
       {GraphMark, Color} =
-        if NewSSB =/= TracesSSB -> {"SSB","yellow"};
+        if NewSSB =/= TracesSSB -> {"Sleep Set Block","yellow"};
            NewErrors =/= Errors ->
             DeadlockS =
               case Warn of
@@ -371,7 +388,8 @@ printout(_, Format, Data) ->
 
 printout(State, Level, Format, Data) ->
   Tag = verbosity_to_string(Level),
-  NewFormat = Tag ++ ": " ++ Format,
+  Pad = verbosity_pad(Level),
+  NewFormat = Tag ++ Pad ++ Format,
   printout(State, NewFormat, Data).
 
 print_log_msgs(Output, LogMsgs) ->
@@ -398,6 +416,15 @@ verbosity_to_string(Level) ->
     ?lwarning -> "Warning";
     ?ltip     -> "Tip";
     ?linfo    -> "Info";
+    _ -> ""
+  end.
+
+verbosity_pad(Level) ->
+  case Level of
+    ?lerror   -> ": ";
+    ?lwarning -> ": ";
+    ?ltip     -> ": ";
+    ?linfo    -> ": ";
     _ -> ""
   end.
 
@@ -481,6 +508,7 @@ tag_to_filename(Filename) when is_list(Filename) ->
 interleavings_message(State) ->
   #logger_state{
      errors = Errors,
+     traces_conservative_skip = TracesSkip,
      traces_explored = TracesExplored,
      traces_ssb = TracesSSB,
      traces_total = TracesTotal
@@ -490,8 +518,13 @@ interleavings_message(State) ->
       true -> "";
       false -> io_lib:format(" (~p sleep-set blocked)",[TracesSSB])
     end,
-  io_lib:format("~p errors, ~p/~p interleavings explored~s~n",
-                [Errors, TracesExplored, TracesTotal, SSB]).
+  Skip =
+    case TracesSkip =:= 0 of
+      true -> "";
+      false -> io_lib:format(" (+~p conservative skipped)",[TracesSkip])
+    end,
+  io_lib:format("~p errors, ~p/~p interleavings explored~s~s~n",
+                [Errors, TracesExplored, TracesTotal, SSB, Skip]).
 
 %%------------------------------------------------------------------------------
 
@@ -507,9 +540,9 @@ graph_new_node(Logger, Ref, Index, Event, BoundConsumed) ->
   Logger ! {graph, {new_node, Ref, Index, Event, BoundConsumed}},
   ok.
 
--spec graph_race(logger(), reference(), reference()) -> ok.
-graph_race(Logger, EarlyRef, Ref) ->
-  Logger ! {graph, {race, EarlyRef, Ref}},
+-spec graph_race(logger(), reference(), reference(), string()) -> ok.
+graph_race(Logger, EarlyRef, Ref, Color) ->
+  Logger ! {graph, {race, EarlyRef, Ref, Color}},
   ok.
 
 graph_preamble(undefined) -> undefined;
@@ -563,11 +596,11 @@ graph_command(Command, State) ->
               [ref_edge(Parent, Ref), ref_edge(Sibling, Ref)])
         end,
         {GraphFile, Ref, none};
-      {race, EarlyRef, Ref} ->
+      {race, EarlyRef, Ref, Color} ->
         io:format(
           GraphFile,
-          "~s[constraint=false, color=red, dir=back, penwidth=3, style=dashed];~n",
-          [dref_edge(EarlyRef, Ref)]),
+          "~s[constraint=false, color=~s, dir=back, penwidth=3, style=dashed];~n",
+          [dref_edge(EarlyRef, Ref), Color]),
         Graph;
       {set_node, NewParent, NewSibling} ->
         io:format(
@@ -580,7 +613,7 @@ graph_command(Command, State) ->
         Ref = make_ref(),
         io:format(
           GraphFile,
-          "    \"~p\" [label=\"~p: ~s\",style=filled,fillcolor=~s];~n"
+          "    \"~p\" [label=\"i~p: ~s\",style=filled,fillcolor=~s];~n"
           "~s[weight=1000];~n",
           [Ref, Count+1, String, Color, ref_edge(Parent, Ref)]),
         Graph
