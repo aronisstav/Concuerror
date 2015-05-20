@@ -1,25 +1,29 @@
 ################################################################################
+
 Concuerror started with options:
   [{after_timeout,infinity},
    {assume_racing,false},
-   {delay_bound,infinity},
    {depth_bound,5000},
    {entry_point,{receive_deps_kill,test,[]}},
    {files,["/home/stavros/git/Concuerror/tests/suites/advanced_tests/src/receive_deps_kill.erl"]},
    {ignore_error,[deadlock]},
    {ignore_first_crash,true},
    {instant_delivery,false},
+   {interleaving_bound,infinity},
+   {keep_going,true},
    {non_racing_system,[]},
    {optimal,true},
    {print_depth,20},
-   {quiet,true},
    {scheduling,round_robin},
+   {scheduling_bound,infinity},
+   {scheduling_bound_type,none},
    {show_races,false},
    {strict_scheduling,false},
    {symbolic_names,true},
    {timeout,infinity},
    {treat_as_normal,[]}]
 ################################################################################
+
 Erroneous interleaving 1:
 * At step 17 process P.2 exited abnormally
     Reason:
@@ -27,11 +31,12 @@ Erroneous interleaving 1:
     Stacktrace:
       []
 --------------------------------------------------------------------------------
+
 Interleaving info:
    1: P: table = ets:new(table, [public,named_table])
     in receive_deps_kill.erl line 14
-   2: P: P.1 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.4.49073312>,[]])
-    in erlang.erl line 2329
+   2: P: P.1 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.'-test/0-fun-0-'.0>,[]])
+    in erlang.erl line 2494
    3: P.1: 1 = P ! 1
     in receive_deps_kill.erl line 18
    4: P.1: true = ets:insert(table, {k,1})
@@ -40,8 +45,8 @@ Interleaving info:
    6: Message (1) from P.1 reaches P
    7: P: receives message (1)
     in receive_deps_kill.erl line 26
-   8: P: P.2 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.4.49073312>,[]])
-    in erlang.erl line 2329
+   8: P: P.2 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.'-test/0-fun-0-'.0>,[]])
+    in erlang.erl line 2494
    9: P.2: 2 = P ! 2
     in receive_deps_kill.erl line 18
   10: P.2: [{k,1}] = ets:lookup(table, k)
@@ -53,11 +58,12 @@ Interleaving info:
     in receive_deps_kill.erl line 29
   14: P: true = erlang:exit(P.2, boo)
     in receive_deps_kill.erl line 31
-  15: P: [{k,2}] = ets:lookup(table, k)
+  15: Exit signal (boo) from P reaches P.2
+  16: P: [{k,2}] = ets:lookup(table, k)
     in receive_deps_kill.erl line 32
-  16: Exit signal (boo) from P reaches P.2
   17: P.2: exits abnormally (boo)
 ################################################################################
+
 Erroneous interleaving 2:
 * At step 16 process P.2 exited abnormally
     Reason:
@@ -65,11 +71,12 @@ Erroneous interleaving 2:
     Stacktrace:
       []
 --------------------------------------------------------------------------------
+
 Interleaving info:
    1: P: table = ets:new(table, [public,named_table])
     in receive_deps_kill.erl line 14
-   2: P: P.1 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.4.49073312>,[]])
-    in erlang.erl line 2329
+   2: P: P.1 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.'-test/0-fun-0-'.0>,[]])
+    in erlang.erl line 2494
    3: P.1: 1 = P ! 1
     in receive_deps_kill.erl line 18
    4: P.1: true = ets:insert(table, {k,1})
@@ -78,8 +85,8 @@ Interleaving info:
    6: Message (1) from P.1 reaches P
    7: P: receives message (1)
     in receive_deps_kill.erl line 26
-   8: P: P.2 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.4.49073312>,[]])
-    in erlang.erl line 2329
+   8: P: P.2 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.'-test/0-fun-0-'.0>,[]])
+    in erlang.erl line 2494
    9: P.2: 2 = P ! 2
     in receive_deps_kill.erl line 18
   10: P.2: [{k,1}] = ets:lookup(table, k)
@@ -94,6 +101,7 @@ Interleaving info:
   15: Exit signal (boo) from P reaches P.2
   16: P.2: exits abnormally (boo)
 ################################################################################
+
 Erroneous interleaving 3:
 * At step 17 process P.2 exited abnormally
     Reason:
@@ -101,11 +109,12 @@ Erroneous interleaving 3:
     Stacktrace:
       []
 --------------------------------------------------------------------------------
+
 Interleaving info:
    1: P: table = ets:new(table, [public,named_table])
     in receive_deps_kill.erl line 14
-   2: P: P.1 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.4.49073312>,[]])
-    in erlang.erl line 2329
+   2: P: P.1 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.'-test/0-fun-0-'.0>,[]])
+    in erlang.erl line 2494
    3: P.1: 1 = P ! 1
     in receive_deps_kill.erl line 18
    4: P.1: true = ets:insert(table, {k,1})
@@ -114,8 +123,8 @@ Interleaving info:
    6: Message (1) from P.1 reaches P
    7: P: receives message (1)
     in receive_deps_kill.erl line 26
-   8: P: P.2 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.4.49073312>,[]])
-    in erlang.erl line 2329
+   8: P: P.2 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.'-test/0-fun-0-'.0>,[]])
+    in erlang.erl line 2494
    9: P.2: 2 = P ! 2
     in receive_deps_kill.erl line 18
   10: P.2: [{k,1}] = ets:lookup(table, k)
@@ -132,6 +141,7 @@ Interleaving info:
   16: Exit signal (boo) from P reaches P.2
   17: P.2: exits abnormally (boo)
 ################################################################################
+
 Erroneous interleaving 4:
 * At step 15 process P.2 exited abnormally
     Reason:
@@ -139,11 +149,12 @@ Erroneous interleaving 4:
     Stacktrace:
       []
 --------------------------------------------------------------------------------
+
 Interleaving info:
    1: P: table = ets:new(table, [public,named_table])
     in receive_deps_kill.erl line 14
-   2: P: P.1 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.4.49073312>,[]])
-    in erlang.erl line 2329
+   2: P: P.1 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.'-test/0-fun-0-'.0>,[]])
+    in erlang.erl line 2494
    3: P.1: 1 = P ! 1
     in receive_deps_kill.erl line 18
    4: P.1: true = ets:insert(table, {k,1})
@@ -152,8 +163,8 @@ Interleaving info:
    6: Message (1) from P.1 reaches P
    7: P: receives message (1)
     in receive_deps_kill.erl line 26
-   8: P: P.2 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.4.49073312>,[]])
-    in erlang.erl line 2329
+   8: P: P.2 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.'-test/0-fun-0-'.0>,[]])
+    in erlang.erl line 2494
    9: P.2: 2 = P ! 2
     in receive_deps_kill.erl line 18
   10: Message (2) from P.2 reaches P
@@ -161,11 +172,12 @@ Interleaving info:
     in receive_deps_kill.erl line 29
   12: P: true = erlang:exit(P.2, boo)
     in receive_deps_kill.erl line 31
-  13: P: [{k,1}] = ets:lookup(table, k)
+  13: Exit signal (boo) from P reaches P.2
+  14: P: [{k,1}] = ets:lookup(table, k)
     in receive_deps_kill.erl line 32
-  14: Exit signal (boo) from P reaches P.2
   15: P.2: exits abnormally (boo)
 ################################################################################
+
 Erroneous interleaving 5:
 * At step 16 process P.2 exited abnormally
     Reason:
@@ -173,90 +185,95 @@ Erroneous interleaving 5:
     Stacktrace:
       []
 --------------------------------------------------------------------------------
+
 Interleaving info:
    1: P: table = ets:new(table, [public,named_table])
     in receive_deps_kill.erl line 14
-   2: P: P.1 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.4.49073312>,[]])
-    in erlang.erl line 2329
+   2: P: P.1 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.'-test/0-fun-0-'.0>,[]])
+    in erlang.erl line 2494
    3: P.1: 1 = P ! 1
     in receive_deps_kill.erl line 18
    4: Message (1) from P.1 reaches P
    5: P: receives message (1)
     in receive_deps_kill.erl line 26
-   6: P: P.2 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.4.49073312>,[]])
-    in erlang.erl line 2329
+   6: P: P.2 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.'-test/0-fun-0-'.0>,[]])
+    in erlang.erl line 2494
    7: P.2: 2 = P ! 2
     in receive_deps_kill.erl line 18
-   8: Message (2) from P.2 reaches P
-   9: P: receives message (2)
-    in receive_deps_kill.erl line 29
-  10: P: true = erlang:exit(P.2, boo)
-    in receive_deps_kill.erl line 31
-  11: P.2: [] = ets:lookup(table, k)
+   8: P.2: [] = ets:lookup(table, k)
     in receive_deps_kill.erl line 19
+   9: Message (2) from P.2 reaches P
+  10: P: receives message (2)
+    in receive_deps_kill.erl line 29
+  11: P: true = erlang:exit(P.2, boo)
+    in receive_deps_kill.erl line 31
   12: P: [] = ets:lookup(table, k)
     in receive_deps_kill.erl line 32
-  13: P.1: true = ets:insert(table, {k,1})
+  13: Exit signal (boo) from P reaches P.2
+  14: P.1: true = ets:insert(table, {k,1})
     in receive_deps_kill.erl line 20
-  14: P.1: exits normally
-  15: Exit signal (boo) from P reaches P.2
+  15: P.1: exits normally
   16: P.2: exits abnormally (boo)
 ################################################################################
+
 Erroneous interleaving 6:
-* At step 16 process P.2 exited abnormally
+* At step 14 process P.2 exited abnormally
     Reason:
       boo
     Stacktrace:
       []
 --------------------------------------------------------------------------------
+
 Interleaving info:
    1: P: table = ets:new(table, [public,named_table])
     in receive_deps_kill.erl line 14
-   2: P: P.1 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.4.49073312>,[]])
-    in erlang.erl line 2329
+   2: P: P.1 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.'-test/0-fun-0-'.0>,[]])
+    in erlang.erl line 2494
    3: P.1: 1 = P ! 1
     in receive_deps_kill.erl line 18
    4: Message (1) from P.1 reaches P
    5: P: receives message (1)
     in receive_deps_kill.erl line 26
-   6: P: P.2 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.4.49073312>,[]])
-    in erlang.erl line 2329
+   6: P: P.2 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.'-test/0-fun-0-'.0>,[]])
+    in erlang.erl line 2494
    7: P.2: 2 = P ! 2
     in receive_deps_kill.erl line 18
-   8: Message (2) from P.2 reaches P
-   9: P: receives message (2)
-    in receive_deps_kill.erl line 29
-  10: P: true = erlang:exit(P.2, boo)
-    in receive_deps_kill.erl line 31
-  11: P.2: [] = ets:lookup(table, k)
+   8: P.2: [] = ets:lookup(table, k)
     in receive_deps_kill.erl line 19
+   9: Message (2) from P.2 reaches P
+  10: P: receives message (2)
+    in receive_deps_kill.erl line 29
+  11: P: true = erlang:exit(P.2, boo)
+    in receive_deps_kill.erl line 31
   12: P.1: true = ets:insert(table, {k,1})
     in receive_deps_kill.erl line 20
-  13: P.1: exits normally
-  14: P: [{k,1}] = ets:lookup(table, k)
+  13: Exit signal (boo) from P reaches P.2
+  14: P.2: exits abnormally (boo)
+  15: P: [{k,1}] = ets:lookup(table, k)
     in receive_deps_kill.erl line 32
-  15: Exit signal (boo) from P reaches P.2
-  16: P.2: exits abnormally (boo)
+  16: P.1: exits normally
 ################################################################################
+
 Erroneous interleaving 7:
-* At step 12 process P.2 exited abnormally
+* At step 13 process P.2 exited abnormally
     Reason:
       boo
     Stacktrace:
       []
 --------------------------------------------------------------------------------
+
 Interleaving info:
    1: P: table = ets:new(table, [public,named_table])
     in receive_deps_kill.erl line 14
-   2: P: P.1 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.4.49073312>,[]])
-    in erlang.erl line 2329
+   2: P: P.1 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.'-test/0-fun-0-'.0>,[]])
+    in erlang.erl line 2494
    3: P.1: 1 = P ! 1
     in receive_deps_kill.erl line 18
    4: Message (1) from P.1 reaches P
    5: P: receives message (1)
     in receive_deps_kill.erl line 26
-   6: P: P.2 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.4.49073312>,[]])
-    in erlang.erl line 2329
+   6: P: P.2 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.'-test/0-fun-0-'.0>,[]])
+    in erlang.erl line 2494
    7: P.2: 2 = P ! 2
     in receive_deps_kill.erl line 18
    8: Message (2) from P.2 reaches P
@@ -264,98 +281,39 @@ Interleaving info:
     in receive_deps_kill.erl line 29
   10: P: true = erlang:exit(P.2, boo)
     in receive_deps_kill.erl line 31
-  11: Exit signal (boo) from P reaches P.2
-  12: P.2: exits abnormally (boo)
-  13: P: [] = ets:lookup(table, k)
+  11: P: [] = ets:lookup(table, k)
     in receive_deps_kill.erl line 32
+  12: Exit signal (boo) from P reaches P.2
+  13: P.2: exits abnormally (boo)
   14: P.1: true = ets:insert(table, {k,1})
     in receive_deps_kill.erl line 20
   15: P.1: exits normally
 ################################################################################
-Erroneous interleaving 8:
-* At step 17 process P.2 exited abnormally
-    Reason:
-      boo
-    Stacktrace:
-      []
+
+Warnings:
 --------------------------------------------------------------------------------
-Interleaving info:
-   1: P: table = ets:new(table, [public,named_table])
-    in receive_deps_kill.erl line 14
-   2: P: P.1 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.4.49073312>,[]])
-    in erlang.erl line 2329
-   3: P.1: 1 = P ! 1
-    in receive_deps_kill.erl line 18
-   4: Message (1) from P.1 reaches P
-   5: P: receives message (1)
-    in receive_deps_kill.erl line 26
-   6: P: P.2 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.4.49073312>,[]])
-    in erlang.erl line 2329
-   7: P.2: 2 = P ! 2
-    in receive_deps_kill.erl line 18
-   8: Message (2) from P.2 reaches P
-   9: P: receives message (2)
-    in receive_deps_kill.erl line 29
-  10: P: true = erlang:exit(P.2, boo)
-    in receive_deps_kill.erl line 31
-  11: P: [] = ets:lookup(table, k)
-    in receive_deps_kill.erl line 32
-  12: P.1: true = ets:insert(table, {k,1})
-    in receive_deps_kill.erl line 20
-  13: P.1: exits normally
-  14: P.2: [{k,1}] = ets:lookup(table, k)
-    in receive_deps_kill.erl line 19
-  15: P.2: true = ets:insert(table, {k,2})
-    in receive_deps_kill.erl line 20
-  16: Exit signal (boo) from P reaches P.2
-  17: P.2: exits abnormally (boo)
+
+Some errors were ignored ('--ignore_error').
+Continuing after error
+
 ################################################################################
-Erroneous interleaving 9:
-* At step 16 process P.2 exited abnormally
-    Reason:
-      boo
-    Stacktrace:
-      []
+
+Tips:
 --------------------------------------------------------------------------------
-Interleaving info:
-   1: P: table = ets:new(table, [public,named_table])
-    in receive_deps_kill.erl line 14
-   2: P: P.1 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.4.49073312>,[]])
-    in erlang.erl line 2329
-   3: P.1: 1 = P ! 1
-    in receive_deps_kill.erl line 18
-   4: Message (1) from P.1 reaches P
-   5: P: receives message (1)
-    in receive_deps_kill.erl line 26
-   6: P: P.2 = erlang:spawn(erlang, apply, [#Fun<receive_deps_kill.4.49073312>,[]])
-    in erlang.erl line 2329
-   7: P.2: 2 = P ! 2
-    in receive_deps_kill.erl line 18
-   8: Message (2) from P.2 reaches P
-   9: P: receives message (2)
-    in receive_deps_kill.erl line 29
-  10: P: true = erlang:exit(P.2, boo)
-    in receive_deps_kill.erl line 31
-  11: P: [] = ets:lookup(table, k)
-    in receive_deps_kill.erl line 32
-  12: P.1: true = ets:insert(table, {k,1})
-    in receive_deps_kill.erl line 20
-  13: P.1: exits normally
-  14: P.2: [{k,1}] = ets:lookup(table, k)
-    in receive_deps_kill.erl line 19
-  15: Exit signal (boo) from P reaches P.2
-  16: P.2: exits abnormally (boo)
-################################################################################
-Concuerror Tips:
---------------------------------------------------------------------------------
+
 An abnormal exit signal was sent to a process. This is probably the worst thing that can happen race-wise, as any other side-effecting operation races with the arrival of the signal. If the test produces too many interleavings consider refactoring your code.
+
 ################################################################################
-Concuerror Info:
+
+Info:
 --------------------------------------------------------------------------------
-Instrumented: receive_deps_kill
-Instrumented: io_lib
-Instrumented: erlang
-Some errors were silenced (--ignore_error).
+
+Instrumented receive_deps_kill
+Instrumented io_lib
+Instrumented erlang
+You can see pairs of racing instructions (in the report and --graph) with '--show_races true'
+
 ################################################################################
+
 Done! (Exit status: completed)
-  Summary: 9 errors, 14/14 interleavings explored
+  Summary: 7 errors, 11/11 interleavings explored
