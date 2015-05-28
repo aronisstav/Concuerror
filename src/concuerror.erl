@@ -9,6 +9,7 @@
 -spec run(options()) -> 'completed' | 'error'.
 
 run(RawOptions) ->
+  ?indent_start,
   try
     _ = [true = code:unstick_mod(M) || {M, preloaded} <- code:all_loaded()],
     [] = [D || D <- code:get_path(), ok =/= code:unstick_dir(D)],

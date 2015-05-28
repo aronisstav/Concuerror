@@ -43,6 +43,8 @@
 -define(debug_flag(_A, _B, _C), ?debug(_B, _C)).
 -endif.
 %%------------------------------------------------------------------------------
+-define(assert(A,B), A = B).
+%%------------------------------------------------------------------------------
 -type scheduler() :: pid().
 -type logger()    :: pid().
 -type options()   :: proplists:proplist().
@@ -75,16 +77,27 @@
         ?log(Logger, ?lerror, Format, Data)).
 
 -ifdef(DEV).
+-define(indent_start, put(indent," ")).
+-define(indent1, put(indent, [$\ |get(indent)])).
+-define(unindent1, put(indent, tl(get(indent)))).
 -define(dev_log(Logger, Level, Format, Data),
-        ?log(Logger, Level, "(~p@~p) " ++ Format, [?MODULE, ?LINE| Data])).
+        ?log(Logger, Level,
+             "(~p@~p)" ++ get(indent) ++ Format,
+             [?MODULE, ?LINE] ++ Data)).
 -define(debug(Logger, Format, Data), ?dev_log(Logger, ?ldebug, Format, Data)).
 -define(trace(Logger, Format, Data), ?dev_log(Logger, ?ltrace, Format, Data)).
 -define(has_dev, true).
 -else.
+-define(indent_start, ok).
+-define(indent1, ok).
+-define(unindent1, ok).
 -define(debug(Logger, Format, Data),ok).
 -define(trace(Logger, Format, Data),ok).
 -define(has_dev, false).
 -endif.
+
+-define(indent(N), _ = [?indent1 || _ <- lists:seq(1,N)]).
+-define(unindent(N), _ = [?unindent1 || _ <- lists:seq(1,N)]).
 
 -define(unique(Logger, Type, Format, Data),
         ?log(Logger, Type, {?MODULE, ?LINE}, Format, Data)).
