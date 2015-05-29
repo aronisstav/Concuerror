@@ -70,6 +70,7 @@ def runScenario(suite, name, modn, funn, preb, flags, files):
     global lock
     global total_tests
     global total_failed
+    bound_flag = ""
     if "dpor" in flags:
         dpor_flag = "--optimal=true"
         file_ext = "-dpor"
@@ -82,17 +83,19 @@ def runScenario(suite, name, modn, funn, preb, flags, files):
         dpor_flag = ""
         file_ext = ""
         dpor_output = "full"
+        if preb != "inf":
+            bound_flag=("-c preemption -b %s") % (preb)
     sema.acquire()
     # Run concuerror
     status = os.system(
         ("%s -kq --timeout -1 --assume_racing false --show_races false"
          " %s -f %s"
          " --output %s/%s/results/%s-%s-%s%s.txt"
-         " -m %s -t %s"
+         " -m %s -t %s %s"
          )
         % (concuerror, dpor_flag, " -f ".join(files),
            results, suite, name, funn, preb, file_ext,
-           modn, funn))
+           modn, funn, bound_flag))
     # Compare the results
     has_crash = "crash" in flags
     orig = ("%s/suites/%s/results/%s-%s-%s%s.txt"

@@ -1,0 +1,125 @@
+################################################################################
+
+Concuerror started with options:
+  [{after_timeout,infinity},
+   {assume_racing,false},
+   {depth_bound,5000},
+   {entry_point,{dekker,test,[]}},
+   {files,["/home/stavros/git/Concuerror/tests/suites/bounding_tests/src/dekker.erl"]},
+   {ignore_error,[]},
+   {ignore_first_crash,true},
+   {instant_delivery,false},
+   {interleaving_bound,infinity},
+   {keep_going,true},
+   {non_racing_system,[]},
+   {optimal,false},
+   {print_depth,20},
+   {scheduling,round_robin},
+   {scheduling_bound,1},
+   {scheduling_bound_type,preemption},
+   {show_races,false},
+   {strict_scheduling,false},
+   {symbolic_names,true},
+   {timeout,infinity},
+   {treat_as_normal,[]}]
+################################################################################
+
+Erroneous interleaving 1:
+* Blocked at a 'receive' (when all other processes have exited):
+    P in dekker.erl line 21
+--------------------------------------------------------------------------------
+
+Interleaving info:
+   1: P: table = ets:new(table, [public,named_table])
+    in dekker.erl line 16
+   2: P: true = ets:insert(table, {x,0})
+    in dekker.erl line 35
+   3: P: true = ets:insert(table, {y,0})
+    in dekker.erl line 35
+   4: P: P.1 = erlang:spawn(erlang, apply, [#Fun<dekker.'-test/0-fun-0-'.0>,[]])
+    in erlang.erl line 2494
+   5: P: P.2 = erlang:spawn(erlang, apply, [#Fun<dekker.'-test/0-fun-1-'.0>,[]])
+    in erlang.erl line 2494
+   6: P.1: [{x,0}] = ets:lookup(table, x)
+    in dekker.erl line 38
+   7: P.1: true = ets:insert(table, {y,1})
+    in dekker.erl line 35
+   8: P.1: exits normally
+   9: P.2: [{y,1}] = ets:lookup(table, y)
+    in dekker.erl line 38
+  10: P.2: exits normally
+################################################################################
+
+Erroneous interleaving 2:
+* Blocked at a 'receive' (when all other processes have exited):
+    P in dekker.erl line 21
+--------------------------------------------------------------------------------
+
+Interleaving info:
+   1: P: table = ets:new(table, [public,named_table])
+    in dekker.erl line 16
+   2: P: true = ets:insert(table, {x,0})
+    in dekker.erl line 35
+   3: P: true = ets:insert(table, {y,0})
+    in dekker.erl line 35
+   4: P: P.1 = erlang:spawn(erlang, apply, [#Fun<dekker.'-test/0-fun-0-'.0>,[]])
+    in erlang.erl line 2494
+   5: P: P.2 = erlang:spawn(erlang, apply, [#Fun<dekker.'-test/0-fun-1-'.0>,[]])
+    in erlang.erl line 2494
+   6: P.2: [{y,0}] = ets:lookup(table, y)
+    in dekker.erl line 38
+   7: P.2: true = ets:insert(table, {x,1})
+    in dekker.erl line 35
+   8: P.2: exits normally
+   9: P.1: [{x,1}] = ets:lookup(table, x)
+    in dekker.erl line 38
+  10: P.1: exits normally
+################################################################################
+
+Erroneous interleaving 3:
+* Blocked at a 'receive' (when all other processes have exited):
+    P in dekker.erl line 21
+--------------------------------------------------------------------------------
+
+Interleaving info:
+   1: P: table = ets:new(table, [public,named_table])
+    in dekker.erl line 16
+   2: P: true = ets:insert(table, {x,0})
+    in dekker.erl line 35
+   3: P: true = ets:insert(table, {y,0})
+    in dekker.erl line 35
+   4: P: P.1 = erlang:spawn(erlang, apply, [#Fun<dekker.'-test/0-fun-0-'.0>,[]])
+    in erlang.erl line 2494
+   5: P: P.2 = erlang:spawn(erlang, apply, [#Fun<dekker.'-test/0-fun-1-'.0>,[]])
+    in erlang.erl line 2494
+   6: P.2: [{y,0}] = ets:lookup(table, y)
+    in dekker.erl line 38
+   7: P.1: [{x,0}] = ets:lookup(table, x)
+    in dekker.erl line 38
+   8: P.1: true = ets:insert(table, {y,1})
+    in dekker.erl line 35
+   9: P.1: exits normally
+  10: P.2: true = ets:insert(table, {x,1})
+    in dekker.erl line 35
+  11: P.2: exits normally
+################################################################################
+
+Warnings:
+--------------------------------------------------------------------------------
+
+Continuing after error
+
+################################################################################
+
+Info:
+--------------------------------------------------------------------------------
+
+Instrumented dekker
+Instrumented io_lib
+Instrumented erlang
+You can see pairs of racing instructions (in the report and --graph) with '--show_races true'
+
+################################################################################
+
+Done! (Exit status: completed)
+  Summary: 3 errors, 3/3 interleavings explored
