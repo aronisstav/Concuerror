@@ -516,7 +516,7 @@ update_sleeping(Event, Sleeping, WakeupTree, State) ->
     fun(SleepingEvent, {Trimmed, Acc}) ->
         case Trimmed of
           allowed -> {allowed, [SleepingEvent|Acc]};
-          true -> {Trimmed, Acc};
+          true -> {true, Acc};
           false ->
             Dependent =
               concuerror_dependencies:dependent_safe(SleepingEvent, Event),
@@ -905,10 +905,11 @@ more_interleavings_for_event([TraceState|Rest], Event, Later, Clock, State,
           true ->
             ?debug(Logger, "races with ~s~n",
                    [?pretty_s(EarlyIndex, EarlyEvent)]),
+            BlockClock = block_clock(Event#event.actor, Clock, Later),
             ?indent(2),
             UpdateTrace =
               update_trace(
-                Event, Clock, TraceState, Rest, NewOldTrace, Later, State),
+                Event, BlockClock, TraceState, Rest, NewOldTrace, Later, State),
             ?unindent(2),
             case UpdateTrace of
               skip -> update_clock;
@@ -932,6 +933,21 @@ more_interleavings_for_event([TraceState|Rest], Event, Later, Clock, State,
     end,
   more_interleavings_for_event(
     NewRest, Event, Later, NewClock, State, Index, [NewState|NewOldTrace]).
+
+block_clock(_Actor, Clock, []) ->
+  Clock;
+block_clock(Actor, Clock, [TraceState|Rest]) ->
+  #trace_state{
+     clock_map = ClockMap,
+     done = [[#event{actor = LActor}|_]|_]
+    } = TraceState,
+  case LActor =:= Actor of
+    false -> Clock;
+    true ->
+      LaterClock = lookup_clock(LActor, ClockMap),
+      NewClock = max_cv(Clock, LaterClock),
+      block_clock(Actor, NewClock, Rest)
+  end.
 
 update_trace(Event, Clock, TraceState, Rest, NewOldTrace, Later, State) ->
   #scheduler_state{
@@ -1077,13 +1093,14 @@ maybe_log_race(TraceState, Index, Event, State) ->
   end.
 
 insert_wakeup(Sleeping, Wakeup, NotDep, Optimal, Exploring) ->
-  SleepingHeads = [S || {_, [S|_]} <- Sleeping],
   case Optimal of
-    true -> insert_wakeup(SleepingHeads, Wakeup, NotDep, Exploring);
+    true ->
+      SleepingHeads = [S || {_, [S|_]} <- Sleeping],
+      insert_wakeup(SleepingHeads, Wakeup, NotDep, Exploring);
     false ->
       Initials = get_initials(NotDep),
       All =
-        SleepingHeads ++
+        Sleeping ++
         [W || #backtrack_entry{event = W, wakeup_tree = []} <- Wakeup],
       case existing(All, Initials) of
         true -> skip;
@@ -1177,7 +1194,14 @@ existing([#event{actor = A}|Rest], Initials) ->
   case lists:any(Pred, Initials) of
     true -> true;
     false -> existing(Rest, Initials)
-  end.  
+  end;
+existing([{_Allowed, Events}|Rest], Initials) ->
+  %% Should we bother about allowed/not allowed??
+  Pred = fun(Event) -> false =/= check_initial(Event, Initials) end,
+  case not _Allowed andalso lists:all(Pred, Events) of
+    true -> true;
+    false -> existing(Rest, Initials)
+  end.
 
 %%------------------------------------------------------------------------------
 
