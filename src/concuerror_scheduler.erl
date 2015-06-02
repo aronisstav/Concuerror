@@ -999,7 +999,7 @@ update_trace(Event, Clock, TraceState, Rest, NewOldTrace, Later, State) ->
   ?debug(Logger, "Reversing at: ~s~n",[?pretty_s(_TargetIndex, _TargetEvent)]),
   case insert_wakeup(AllSleeping, Wakeup, AllNotDep, Optimal, Exploring) of
     skip ->
-      ?debug(Logger, "SKIP~n",[]),
+      ?debug(Logger, "SKIP~nSleeping:~n ~p~nInit:~n ~p~nWakeup:~n ~p~n",[AllSleeping, get_initials(AllNotDep), Wakeup]),
       skip;
     NewWakeup ->
       %% Check bound
@@ -1009,6 +1009,7 @@ update_trace(Event, Clock, TraceState, Rest, NewOldTrace, Later, State) ->
           skip;
         false ->
           trace_plan(Logger, EarlyIndex, NotDep),
+          ?debug(Logger, "Sleeping:~n ~p~nAvoid:~n ~p~nWakeup:~n ~p~n",[AllSleeping, avoid_preemption(TraceState, Rest, Preds), Wakeup]),
           NewTarget = TargetTraceState#trace_state{wakeup_tree = NewWakeup},
           [NewTop|NewRest] = lists:reverse([NewTarget|After], Before),
           {NewTop, NewRest}
@@ -1020,8 +1021,9 @@ not_dep(Trace, Later, EarlyActor, EarlyIndex, Event, Clock) ->
   {DepLate, NotDepEarly} = not_dep(Trace, EarlyInfo, Clock, [], []),
   {[], NotDepEarly2} = not_dep(Later, EarlyInfo, Clock, [], []),
   %% The racing event's effect may differ, so new label.
-  {lists:reverse([Event#event{label = undefined}|DepLate]),
-   lists:reverse(NotDepEarly, lists:reverse(NotDepEarly2))}.
+  {lists:reverse([Event#event{label = undefined}|DepLate],
+                 lists:reverse(NotDepEarly)),
+   lists:reverse(NotDepEarly2)}.
 
 not_dep([], _EarlyInfo, _Clock, DepLate, NotDepEarly) ->
   {DepLate, NotDepEarly};
@@ -1047,15 +1049,21 @@ not_dep([TraceState|Rest], EarlyInfo, Clock, DepLate, NotDepEarly) ->
   not_dep(Rest, EarlyInfo, Clock, NewDepLate, NewNotDepEarly).
 
 avoid_preemption(TraceState, Earlier, Preds) ->
-  #trace_state{done = [[#event{actor = Actor}]|_]} = TraceState,
+  #trace_state{
+     done = [[#event{actor = Actor}]|_],
+     previous_was_enabled = PWE
+    } = TraceState,
   case ?is_channel(Actor) of
     true -> false;
-    false -> avoid_preemption(Actor, Earlier, Preds, [TraceState])
+    false -> avoid_preemption(Actor, PWE, Earlier, Preds, [TraceState])
   end.
 
-avoid_preemption(RaceActor, [TraceState|Rest] = Earlier, Preds, After) ->
-  #trace_state{done = [[#event{actor = Actor} = Event]|_]} = TraceState,
-  case Actor =/= RaceActor of
+avoid_preemption(RaceActor, PWE, [TraceState|Rest] = Earlier, Preds, After) ->
+  #trace_state{
+     done = [[#event{actor = Actor} = Event]|_],
+     previous_was_enabled = NPWE
+    } = TraceState,
+  case Actor =/= RaceActor andalso not PWE of
     true ->
       [First|BlockRest] = After,
       {ok, [First|Earlier], BlockRest};
@@ -1063,7 +1071,7 @@ avoid_preemption(RaceActor, [TraceState|Rest] = Earlier, Preds, After) ->
       case check_initial(Event, Preds) =:= false of
         true -> false;
         false ->
-          avoid_preemption(RaceActor, Rest, Preds, [TraceState|After])
+          avoid_preemption(Actor, NPWE, Rest, Preds, [TraceState|After])
       end
   end.
 
@@ -1195,10 +1203,9 @@ existing([#event{actor = A}|Rest], Initials) ->
     true -> true;
     false -> existing(Rest, Initials)
   end;
-existing([{_Allowed, Events}|Rest], Initials) ->
+existing([{Allowed, Events}|Rest], Initials) ->
   %% Should we bother about allowed/not allowed??
-  Pred = fun(Event) -> false =/= check_initial(Event, Initials) end,
-  case not _Allowed andalso lists:all(Pred, Events) of
+  case not Allowed andalso existing(Events, Initials) of
     true -> true;
     false -> existing(Rest, Initials)
   end.
@@ -1206,7 +1213,7 @@ existing([{_Allowed, Events}|Rest], Initials) ->
 %%------------------------------------------------------------------------------
 
 has_more_to_explore(State) ->
-  UpdatedState = find_prefix(State),
+  UpdatedState = find_prefix(State#scheduler_state{block_accumulator = []}),
   {UpdatedState#scheduler_state.trace =/= [],
    UpdatedState#scheduler_state{need_to_replay = true}}.
 
@@ -1214,32 +1221,32 @@ find_prefix(#scheduler_state{trace = []} = State) -> State;
 find_prefix(State) ->
   #scheduler_state{
      block_accumulator = BlockAccumulator,
+     %% logger = Logger,
      trace = [TraceState|Rest]
     } = State,
   #trace_state{
-     done = [[#event{actor = Actor} = Event]|_],
+     done = [[#event{actor = Actor} = Event]|BlockRest],
      wakeup_tree = Wakeup
     } = TraceState,
-  BlockActor =
-    case BlockAccumulator of
-      [] -> none;
-      [#event{actor = BA}|_] -> {ok, BA}
+  %% ?debug(Logger, "BA:~p~nW:~p~n", [BlockAccumulator, Wakeup]),
+  Fold =
+    fun([#event{actor = BA}|_] = Block, Ret) ->
+        case Actor =:= BA of
+          true -> Block;
+          false -> Ret
+        end
     end,
-  NewBlockAccumulator =
-    case {ok, Actor} =:= BlockActor of
-      true -> BlockAccumulator;
-      false -> []
-    end,
+  AugmentActor = lists:foldl(Fold, [], BlockAccumulator),
   case Wakeup =:= [] of
     true ->
       NewState =
         State#scheduler_state{
-          block_accumulator = [Event|NewBlockAccumulator],
+          block_accumulator = [[Event|AugmentActor]|BlockRest],
           trace = Rest
          },
       find_prefix(NewState);
     false ->
-      State#scheduler_state{block_accumulator = NewBlockAccumulator}
+      State#scheduler_state{block_accumulator = AugmentActor}
   end.
 
 replay(#scheduler_state{need_to_replay = false} = State) ->

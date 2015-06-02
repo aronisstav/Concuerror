@@ -97,7 +97,7 @@ run(Parent, Options) ->
             "  ~p~n",
             [lists:sort(PrintableOptions)]),
   separator(Output, $#),
-  GraphData = graph_preamble(?opt(graph, Options)),
+  GraphData = graph_preamble(?opt(graph, Options), ?opt(entry_point, Options)),
   State =
     #logger_state{
        graph_data = GraphData,
@@ -543,15 +543,15 @@ graph_race(Logger, EarlyRef, Ref) ->
   Logger ! {graph, {race, EarlyRef, Ref}},
   ok.
 
-graph_preamble(undefined) -> undefined;
-graph_preamble(GraphFile) ->
+graph_preamble(undefined, _Entry) -> undefined;
+graph_preamble(GraphFile, Entry) ->
   io:format(
     GraphFile,
     "digraph {~n"
     "  graph [ranksep=0.3]~n"
     "  node [shape=box,width=7,fontname=Monospace]~n"
-    "  init [label=\"Initial\"];~n"
-    "  subgraph {~n", []),
+    "  init [label=\"Initial call: ~p\"];~n"
+    "  subgraph {~n", [Entry]),
   {GraphFile, init, none}.
 
 graph_command(_Command, #logger_state{graph_data = undefined} = State) -> State;

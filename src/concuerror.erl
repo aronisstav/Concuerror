@@ -11,16 +11,7 @@
 run(RawOptions) ->
   ?indent_start,
   try
-    _ = [true = code:unstick_mod(M) || {M, preloaded} <- code:all_loaded()],
-    [] = [D || D <- code:get_path(), ok =/= code:unstick_dir(D)],
-    case code:get_object_code(erlang) =:= error of
-      true ->
-        true =
-          code:add_pathz(filename:join(code:root_dir(), "erts/preloaded/ebin"));
-      false ->
-        ok
-    end,
-    {module, concuerror_inspect} = code:load_file(concuerror_inspect),
+    setup_code(),
     Processes = ets:new(processes, [public]),
     Options = concuerror_options:finalize([{processes, Processes}|RawOptions]),
     Logger = concuerror_logger:start(Options),
@@ -45,6 +36,18 @@ run(RawOptions) ->
   catch
     throw:opt_error -> error
   end.
+
+setup_code() ->
+  _ = [true = code:unstick_mod(M) || {M, preloaded} <- code:all_loaded()],
+  [] = [D || D <- code:get_path(), ok =/= code:unstick_dir(D)],
+  case code:get_object_code(erlang) =:= error of
+    true ->
+      true =
+        code:add_pathz(filename:join(code:root_dir(), "erts/preloaded/ebin"));
+    false ->
+      ok
+  end,
+  {module, concuerror_inspect} = code:load_file(concuerror_inspect).
 
 explain(Reason) ->
   Stacktrace = erlang:get_stacktrace(),
