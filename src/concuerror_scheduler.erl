@@ -986,9 +986,7 @@ update_trace(Event, Clock, TraceState, Rest, NewOldTrace, Later, State) ->
         end
     end,
   #trace_state{
-     %% No need to worry about the early event's block, as it can never be an
-     %% initial.
-     done = [[_TargetEvent]|Done],
+     done = [[_TargetEvent]|_] = Done,
      index = _TargetIndex,
      sleeping = Sleeping,
      wakeup_tree = Wakeup
