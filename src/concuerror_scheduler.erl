@@ -52,7 +52,7 @@
 -record(scheduler_state, {
           assume_racing      = true    :: boolean(),
           bound_consumed     = 0       :: non_neg_integer(),
-          block_accumulator  = []      :: [event()],
+          block_accumulator  = []      :: [[event()]],
           current_graph_ref            :: reference(),
           current_warnings   = []      :: [concuerror_warning_info()],
           depth_bound                  :: pos_integer(),
@@ -894,29 +894,24 @@ more_interleavings_for_event([TraceState|Rest], Event, Later, Clock, State,
     } = TraceState,
   EarlyClock = lookup_clock_value(EarlyActor, Clock),
   Action =
-    case EarlyIndex > EarlyClock of
+    case
+      EarlyIndex > EarlyClock andalso
+      concuerror_dependencies:dependent_safe(EarlyEvent, Event)
+    of
       false -> none;
+      irreversible -> update_clock;
       true ->
-        Dependent =
-          concuerror_dependencies:dependent_safe(EarlyEvent, Event),
-        case Dependent of
-          false -> none;
-          irreversible -> update_clock;
-          true ->
-            ?debug(Logger, "races with ~s~n",
-                   [?pretty_s(EarlyIndex, EarlyEvent)]),
-            BlockClock = block_clock(Event#event.actor, Clock, Later),
-            ?indent(2),
-            UpdateTrace =
-              update_trace(
-                Event, BlockClock, TraceState, Rest, NewOldTrace, Later, State),
-            ?unindent(2),
-            case UpdateTrace of
-              skip -> update_clock;
-              {UpdatedState, UpdatedRest} ->
-                concuerror_logger:plan(Logger),
-                {update, UpdatedState, UpdatedRest}
-            end
+        ?debug(Logger, "races with ~s~n",
+               [?pretty_s(EarlyIndex, EarlyEvent)]),
+        ?indent(2),
+        UpdateTrace =
+          update_trace(Event, Clock, TraceState, Rest, NewOldTrace, Later, State),
+        ?unindent(2),
+        case UpdateTrace of
+          skip -> update_clock;
+          {UpdatedState, UpdatedRest} ->
+            concuerror_logger:plan(Logger),
+            {update, UpdatedState, UpdatedRest}
         end
     end,
   NC =
@@ -934,21 +929,6 @@ more_interleavings_for_event([TraceState|Rest], Event, Later, Clock, State,
   more_interleavings_for_event(
     NewRest, Event, Later, NewClock, State, Index, [NewState|NewOldTrace]).
 
-block_clock(_Actor, Clock, []) ->
-  Clock;
-block_clock(Actor, Clock, [TraceState|Rest]) ->
-  #trace_state{
-     clock_map = ClockMap,
-     done = [[#event{actor = LActor}|_]|_]
-    } = TraceState,
-  case LActor =:= Actor of
-    false -> Clock;
-    true ->
-      LaterClock = lookup_clock(LActor, ClockMap),
-      NewClock = max_cv(Clock, LaterClock),
-      block_clock(Actor, NewClock, Rest)
-  end.
-
 update_trace(Event, Clock, TraceState, Rest, NewOldTrace, Later, State) ->
   #scheduler_state{
      exploring = Exploring,
@@ -961,43 +941,53 @@ update_trace(Event, Clock, TraceState, Rest, NewOldTrace, Later, State) ->
      index = EarlyIndex,
      scheduling_bound = SchedulingBound
     } = TraceState,
-  {Preds, NotDep} =
-    not_dep(NewOldTrace, Later, EarlyActor, EarlyIndex, Event, Clock),
+  {PredBlocks, NotDep} =
+    not_dep(NewOldTrace, Later, EarlyActor, EarlyIndex, Clock),
   %% Find where one could add the wakeup and check bound
-  {OverBound, Before, TargetTraceState, After} =
-    case SchedulingBoundType =:= preemption of
+  {OverBound, Before, TargetTraceState, After, WakeupSeq} =
+    case avoid_preemption(TraceState, Rest, PredBlocks, SchedulingBoundType) of
+      {ok, [TopTraceState|B], A} = _Foo->
+        #trace_state{index = NonPreemptIndex} = TopTraceState,
+        {_, TopNonDep} =
+          not_dep(NewOldTrace, Later, EarlyActor, NonPreemptIndex, Clock),
+        Block =
+          [Event#event{label = undefined}] ++
+          [E ||
+            #trace_state{done = [[E]|_]} <- [TopTraceState|A]],
+          ?debug(Logger, "~nBlock:~n~p~n",[Block]),
+        WU = TopNonDep ++ Block,
+        {false, B, TopTraceState, A, WU};
       false ->
         OB =
-          case SchedulingBoundType =:= delay of
-            false -> false;
-            true ->
+          case SchedulingBoundType of
+            none -> false;
+            preemption ->
+              ?debug(Logger, "~nPredBlocks:~n ~p~n", [PredBlocks]),
+              SchedulingBound - 1 < 0;
+            delay ->
               #trace_state{
                  done = D,
                  wakeup_tree = W} = TraceState,
               (SchedulingBound - length(D ++ W)) < 0
           end,
-        {OB, Rest, TraceState, []};
-      true ->
-        case avoid_preemption(TraceState, Rest, Preds) of
-          {ok, [TopTraceState|B], A} ->
-            {false, B, TopTraceState, A};
-          false ->
-            {SchedulingBound - 1 < 0, Rest, TraceState, []}
-        end
+        WU = NotDep ++ [Event#event{label = undefined}],
+        {OB, Rest, TraceState, [], WU}
     end,
   #trace_state{
-     done = [[_TargetEvent]|_] = Done,
+     done = [[_TargetEvent]|Done],
      index = _TargetIndex,
      sleeping = Sleeping,
-     wakeup_tree = Wakeup
+     wakeup_tree = WakeupTree
     } = TargetTraceState,
   AllSleeping = combine_sleeping_and_done(Sleeping, Done),
-  AllNotDep = Preds ++ NotDep,
   %% See if insertion is required
   ?debug(Logger, "Reversing at: ~s~n",[?pretty_s(_TargetIndex, _TargetEvent)]),
-  case insert_wakeup(AllSleeping, Wakeup, AllNotDep, Optimal, Exploring) of
+  case insert_wakeup(AllSleeping, WakeupTree, WakeupSeq, Optimal, Exploring) of
     skip ->
-      ?debug(Logger, "SKIP~nSleeping:~n ~p~nInit:~n ~p~nWakeup:~n ~p~n",[AllSleeping, get_initials(AllNotDep), Wakeup]),
+      ?debug(Logger, "SKIP~n", []),
+      ?debug(Logger, "~nSleeping:~n ~p~n", [AllSleeping]),
+      ?debug(Logger, "~nNotDep:~n ~p~n", [WakeupSeq]),
+      ?debug(Logger, "~nWakeup:~n ~p~n", [WakeupTree]),
       skip;
     NewWakeup ->
       %% Check bound
@@ -1007,61 +997,60 @@ update_trace(Event, Clock, TraceState, Rest, NewOldTrace, Later, State) ->
           skip;
         false ->
           trace_plan(Logger, EarlyIndex, NotDep),
-          ?debug(Logger, "Sleeping:~n ~p~nAvoid:~n ~p~nWakeup:~n ~p~n",[AllSleeping, avoid_preemption(TraceState, Rest, Preds), Wakeup]),
           NewTarget = TargetTraceState#trace_state{wakeup_tree = NewWakeup},
           [NewTop|NewRest] = lists:reverse([NewTarget|After], Before),
           {NewTop, NewRest}
       end
   end.
 
-not_dep(Trace, Later, EarlyActor, EarlyIndex, Event, Clock) ->
+not_dep(BeforeLate, AfterLate, EarlyActor, EarlyIndex, LateClock) ->
   EarlyInfo = {EarlyActor, EarlyIndex},
-  {DepLate, NotDepEarly} = not_dep(Trace, EarlyInfo, Clock, [], []),
-  {[], NotDepEarly2} = not_dep(Later, EarlyInfo, Clock, [], []),
-  %% The racing event's effect may differ, so new label.
-  {lists:reverse([Event#event{label = undefined}|DepLate],
-                 lists:reverse(NotDepEarly)),
-   lists:reverse(NotDepEarly2)}.
+  {BlockPreds, NotDepBefore} =
+    not_dep_1(BeforeLate, EarlyInfo, LateClock, [], [], []),
+  {[], NotDepAfter} =
+    not_dep_1(AfterLate, EarlyInfo, LateClock, [], [], []),
+  {lists:reverse(BlockPreds),
+   lists:reverse(NotDepBefore, lists:reverse(NotDepAfter))}.
 
-not_dep([], _EarlyInfo, _Clock, DepLate, NotDepEarly) ->
-  {DepLate, NotDepEarly};
-not_dep([TraceState|Rest], EarlyInfo, Clock, DepLate, NotDepEarly) ->
-  {Actor, Index} = EarlyInfo,
+not_dep_1([], _EarlyInfo, _LateClock, _BlockClock, BlockPreds, NotDeps) ->
+  {BlockPreds, NotDeps};
+not_dep_1(Trace, EarlyInfo, LateClock, BlockClock, BlockPreds, NotDeps) ->
+  [TraceState|Rest] = Trace,
+  {EarlyActor, EarlyIndex} = EarlyInfo,
   #trace_state{
      clock_map = ClockMap,
-     done = [[#event{actor = LaterActor} = LaterEvent]|_],
-     index = DepIndex
+     done = [[#event{actor = EventActor} = Event]|_],
+     index = Index
     } = TraceState,
-  LaterClock = lookup_clock(LaterActor, ClockMap),
-  ActorLaterClock = lookup_clock_value(Actor, LaterClock),
-  {NewDepLate, NewNotDepEarly} =
-    case Index > ActorLaterClock of
-      false -> {DepLate, NotDepEarly};
+  EventClock = lookup_clock(EventActor, ClockMap),
+  EarlyActorValue = lookup_clock_value(EarlyActor, EventClock),
+  {NewBlockClock, NewBlockPreds, NewNotDeps} =
+    case EarlyIndex > EarlyActorValue of
+      false -> {BlockClock, BlockPreds, NotDeps};
       true ->
-        DepClock = lookup_clock_value(LaterActor, Clock),
-        case DepIndex > DepClock of
-          true -> {DepLate, [LaterEvent|NotDepEarly]};
-          false -> {[LaterEvent|DepLate], NotDepEarly}
-        end
+        NND = [Event|NotDeps],
+        {NBC, NBP} =
+          case
+            Index > lookup_clock_value(EventActor, LateClock) andalso
+            not happens_after(BlockClock, EventClock)
+          of
+            true -> {BlockClock, BlockPreds};
+            false -> {max_cv(BlockClock, EventClock), [Event|BlockPreds]}
+          end,
+        {NBC, NBP, NND}
     end,
-  not_dep(Rest, EarlyInfo, Clock, NewDepLate, NewNotDepEarly).
+  not_dep_1(Rest, EarlyInfo, LateClock, NewBlockClock, NewBlockPreds, NewNotDeps).
 
-avoid_preemption(TraceState, Earlier, Preds) ->
-  #trace_state{
-     done = [[#event{actor = Actor}]|_],
-     previous_was_enabled = PWE
-    } = TraceState,
-  case ?is_channel(Actor) of
+avoid_preemption(TraceState, Earlier, Preds, SchedulingBoundType) ->
+  #trace_state{done = [[#event{actor = Actor}]|_]} = TraceState,
+  case ?is_channel(Actor) orelse SchedulingBoundType =/= preemption of
     true -> false;
-    false -> avoid_preemption(Actor, PWE, Earlier, Preds, [TraceState])
+    false -> avoid_preemption_1(Actor, Earlier, Preds, [TraceState])
   end.
 
-avoid_preemption(RaceActor, PWE, [TraceState|Rest] = Earlier, Preds, After) ->
-  #trace_state{
-     done = [[#event{actor = Actor} = Event]|_],
-     previous_was_enabled = NPWE
-    } = TraceState,
-  case Actor =/= RaceActor andalso not PWE of
+avoid_preemption_1(RaceActor, [TraceState|Rest] = Earlier, Preds, After) ->
+  #trace_state{done = [[#event{actor = Actor} = Event]|_]} = TraceState,
+  case Actor =/= RaceActor of
     true ->
       [First|BlockRest] = After,
       {ok, [First|Earlier], BlockRest};
@@ -1069,7 +1058,7 @@ avoid_preemption(RaceActor, PWE, [TraceState|Rest] = Earlier, Preds, After) ->
       case check_initial(Event, Preds) =:= false of
         true -> false;
         false ->
-          avoid_preemption(Actor, NPWE, Rest, Preds, [TraceState|After])
+          avoid_preemption_1(Actor, Rest, Preds, [TraceState|After])
       end
   end.
 
@@ -1104,11 +1093,10 @@ insert_wakeup(Sleeping, Wakeup, NotDep, Optimal, Exploring) ->
       SleepingHeads = [S || {_, [S|_]} <- Sleeping],
       insert_wakeup(SleepingHeads, Wakeup, NotDep, Exploring);
     false ->
-      Initials = get_initials(NotDep),
       All =
         Sleeping ++
         [W || #backtrack_entry{event = W, wakeup_tree = []} <- Wakeup],
-      case existing(All, Initials) of
+      case existing(All, NotDep) of
         true -> skip;
         false ->
           [E|_] = NotDep,
@@ -1177,35 +1165,18 @@ check_initial(Event, [E|NotDep], Acc) ->
       end
   end.
 
-get_initials(NotDeps) ->
-  get_initials(NotDeps, [], []).
-
-get_initials([], Initials, _) -> lists:reverse(Initials);
-get_initials([Event|Rest], Initials, All) ->
-  Fold =
-    fun(Initial, Acc) ->
-        Acc andalso
-          concuerror_dependencies:dependent_safe(Initial, Event) =:= false
-    end,
-  NewInitials =
-    case lists:foldr(Fold, true, All) of
-      true -> [Event|Initials];
-      false -> Initials
-    end,
-  get_initials(Rest, NewInitials, [Event|All]).            
-
 existing([], _) -> false;
-existing([#event{actor = A}|Rest], Initials) ->
-  Pred = fun(#event{actor = B}) -> A =:= B end,
-  case lists:any(Pred, Initials) of
+existing([#event{} = Event|Rest], NotDep) ->
+  case false =/= check_initial(Event, NotDep) of
     true -> true;
-    false -> existing(Rest, Initials)
+    false -> existing(Rest, NotDep)
   end;
-existing([{Allowed, Events}|Rest], Initials) ->
-  %% Should we bother about allowed/not allowed??
-  case not Allowed andalso existing(Events, Initials) of
-    true -> true;
-    false -> existing(Rest, Initials)
+existing([{true, _}|Rest], NotDep) ->
+  existing(Rest, NotDep);
+existing([{false, [Event|_]}|Rem], NotDep) ->
+  case false =:= check_initial(Event, NotDep) of
+    true -> existing(Rem, NotDep);
+    false -> true
   end.
 
 %%------------------------------------------------------------------------------
@@ -1216,7 +1187,8 @@ has_more_to_explore(State) ->
    UpdatedState#scheduler_state{need_to_replay = true}}.
 
 find_prefix(#scheduler_state{trace = []} = State) -> State;
-find_prefix(State) ->
+find_prefix(State)
+  when State#scheduler_state.scheduling_bound_type =:= preemption ->
   #scheduler_state{
      block_accumulator = BlockAccumulator,
      %% logger = Logger,
@@ -1245,6 +1217,11 @@ find_prefix(State) ->
       find_prefix(NewState);
     false ->
       State#scheduler_state{block_accumulator = AugmentActor}
+  end;
+find_prefix(#scheduler_state{trace = [TraceState|Rest]} = State) ->
+  case TraceState#trace_state.wakeup_tree =:= [] of
+    true -> find_prefix(State#scheduler_state{trace = Rest});
+    false -> State
   end.
 
 replay(#scheduler_state{need_to_replay = false} = State) ->
@@ -1351,6 +1328,20 @@ lookup_clock_value(P, CV) ->
 max_cv(D1, D2) ->
   Merger = fun(_Key, V1, V2) -> max(V1, V2) end,
   orddict:merge(Merger, D1, D2).
+
+happens_after(C1, C2) ->
+  Merger =
+    fun(_Key, V1, V2) ->
+        case V2 < V1 of
+          true -> ok;
+          false -> throw(true)
+        end
+    end,
+  try orddict:merge(Merger, C1, C2) of
+      _ -> false
+  catch
+    throw:true -> true
+  end.
 
 assert_no_messages() ->
   receive

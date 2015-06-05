@@ -47,7 +47,8 @@ setup_code() ->
     false ->
       ok
   end,
-  {module, concuerror_inspect} = code:load_file(concuerror_inspect).
+  {module, concuerror_inspect} = code:load_file(concuerror_inspect),
+  ok.
 
 explain(Reason) ->
   Stacktrace = erlang:get_stacktrace(),
