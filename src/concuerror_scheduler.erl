@@ -1042,15 +1042,21 @@ not_dep_1(Trace, EarlyInfo, LateClock, BlockClock, BlockPreds, NotDeps) ->
   not_dep_1(Rest, EarlyInfo, LateClock, NewBlockClock, NewBlockPreds, NewNotDeps).
 
 avoid_preemption(TraceState, Earlier, Preds, SchedulingBoundType) ->
-  #trace_state{done = [[#event{actor = Actor}]|_]} = TraceState,
+  #trace_state{
+     done = [[#event{actor = Actor}]|_],
+     previous_was_enabled = PWE
+    } = TraceState,
   case ?is_channel(Actor) orelse SchedulingBoundType =/= preemption of
     true -> false;
-    false -> avoid_preemption_1(Actor, Earlier, Preds, [TraceState])
+    false -> avoid_preemption(Actor, PWE, Earlier, Preds, [TraceState])
   end.
 
-avoid_preemption_1(RaceActor, [TraceState|Rest] = Earlier, Preds, After) ->
-  #trace_state{done = [[#event{actor = Actor} = Event]|_]} = TraceState,
-  case Actor =/= RaceActor of
+avoid_preemption(RaceActor, PWE, [TraceState|Rest] = Earlier, Preds, After) ->
+  #trace_state{
+     done = [[#event{actor = Actor} = Event]|_],
+     previous_was_enabled = NPWE
+    } = TraceState,
+  case Actor =/= RaceActor andalso not PWE of
     true ->
       [First|BlockRest] = After,
       {ok, [First|Earlier], BlockRest};
@@ -1058,7 +1064,7 @@ avoid_preemption_1(RaceActor, [TraceState|Rest] = Earlier, Preds, After) ->
       case check_initial(Event, Preds) =:= false of
         true -> false;
         false ->
-          avoid_preemption_1(Actor, Rest, Preds, [TraceState|After])
+          avoid_preemption(Actor, NPWE, Rest, Preds, [TraceState|After])
       end
   end.
 
@@ -1093,10 +1099,12 @@ insert_wakeup(Sleeping, Wakeup, NotDep, Optimal, Exploring) ->
       SleepingHeads = [S || {_, [S|_]} <- Sleeping],
       insert_wakeup(SleepingHeads, Wakeup, NotDep, Exploring);
     false ->
+      Initials = get_initials(NotDep),
       All =
         Sleeping ++
-        [W || #backtrack_entry{event = W, wakeup_tree = []} <- Wakeup],
-      case existing(All, NotDep) of
+        [{false, [W]} || #backtrack_entry{event = W, wakeup_tree = []} <- Wakeup],
+      case existing(All, Initials) of
+      %% case existing(All, NotDep) of
         true -> skip;
         false ->
           [E|_] = NotDep,
@@ -1135,7 +1143,8 @@ insert_wakeup([Node|Rest], NotDep, Exploring) ->
                 #backtrack_entry{
                    event = Event,
                    origin = M,
-                   wakeup_tree = NewTree},
+                   wakeup_tree = NewTree
+                  },
               [Entry|Rest]
           end
       end
@@ -1165,18 +1174,29 @@ check_initial(Event, [E|NotDep], Acc) ->
       end
   end.
 
+get_initials(NotDeps) ->
+  get_initials(NotDeps, [], []).
+
+get_initials([], Initials, _) -> lists:reverse(Initials);
+get_initials([Event|Rest], Initials, All) ->
+  Fold =
+    fun(Initial, Acc) ->
+        Acc andalso
+          concuerror_dependencies:dependent_safe(Initial, Event) =:= false
+    end,
+  NewInitials =
+    case lists:foldr(Fold, true, All) of
+      true -> [Event|Initials];
+      false -> Initials
+    end,
+  get_initials(Rest, NewInitials, [Event|All]).
+
 existing([], _) -> false;
-existing([#event{} = Event|Rest], NotDep) ->
-  case false =/= check_initial(Event, NotDep) of
+existing([{Allowed, [#event{actor = A}|_]}|Rest], Initials) ->
+  Pred = fun(#event{actor = B}) -> A =:= B end,
+  case not Allowed andalso lists:any(Pred, Initials) of
     true -> true;
-    false -> existing(Rest, NotDep)
-  end;
-existing([{true, _}|Rest], NotDep) ->
-  existing(Rest, NotDep);
-existing([{false, [Event|_]}|Rem], NotDep) ->
-  case false =:= check_initial(Event, NotDep) of
-    true -> existing(Rem, NotDep);
-    false -> true
+    false -> existing(Rest, Initials)
   end.
 
 %%------------------------------------------------------------------------------

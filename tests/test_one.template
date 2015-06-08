@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-SUITE=${1-basic_tests}
-TEST=${2-many_send_registered}
-BOUND= #-c preemption -b $BOUND
+SUITE=${1-bounding_tests}
+TEST=${2-p_wx_wy_q_wz_rx_r_rz_ry}
+BOUND="-c preemption -b 1"
 VERBOSITY=-v9
 
 cd $(dirname $0)
