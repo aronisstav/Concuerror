@@ -944,7 +944,7 @@ update_trace(Event, Clock, TraceState, Rest, NewOldTrace, Later, State) ->
   {PredBlocks, NotDep} =
     not_dep(NewOldTrace, Later, EarlyActor, EarlyIndex, Clock),
   %% Find where one could add the wakeup and check bound
-  {OverBound, Before, TargetTraceState, After, WakeupSeq} =
+  {OverBound, Skip, Before, TargetTraceState, After, WakeupSeq} =
     case avoid_preemption(TraceState, Rest, PredBlocks, SchedulingBoundType) of
       {ok, [TopTraceState|B], A} = _Foo->
         #trace_state{index = NonPreemptIndex} = TopTraceState,
@@ -956,7 +956,7 @@ update_trace(Event, Clock, TraceState, Rest, NewOldTrace, Later, State) ->
             #trace_state{done = [[E]|_]} <- [TopTraceState|A]],
           ?debug(Logger, "~nBlock:~n~p~n",[Block]),
         WU = TopNonDep ++ Block,
-        {false, B, TopTraceState, A, WU};
+        {false, false, B, TopTraceState, A, WU};
       false ->
         OB =
           case SchedulingBoundType of
@@ -971,23 +971,29 @@ update_trace(Event, Clock, TraceState, Rest, NewOldTrace, Later, State) ->
               (SchedulingBound - length(D ++ W)) < 0
           end,
         WU = NotDep ++ [Event#event{label = undefined}],
-        {OB, Rest, TraceState, [], WU}
+        {OB, false, Rest, TraceState, [], WU};
+      skip ->
+        {irrelevant, true, irrelevant, irrelevant, irrelevant, irrelevant}
     end,
-  #trace_state{
-     done = [[_TargetEvent]|Done],
-     index = _TargetIndex,
-     sleeping = Sleeping,
-     wakeup_tree = WakeupTree
-    } = TargetTraceState,
-  AllSleeping = combine_sleeping_and_done(Sleeping, Done),
-  %% See if insertion is required
-  ?debug(Logger, "Reversing at: ~s~n",[?pretty_s(_TargetIndex, _TargetEvent)]),
-  case insert_wakeup(AllSleeping, WakeupTree, WakeupSeq, Optimal, Exploring) of
+  UpdateNeeded =
+    case Skip of
+      false ->
+        #trace_state{
+           done = [[_TargetEvent]|Done],
+           index = _TargetIndex,
+           sleeping = Sleeping,
+           wakeup_tree = WakeupTree
+          } = TargetTraceState,
+        AllSleeping = combine_sleeping_and_done(Sleeping, Done),
+        %% See if insertion is required
+        ?debug(Logger, "Reversing at: ~s~n",[?pretty_s(_TargetIndex, _TargetEvent)]),
+        insert_wakeup(AllSleeping, WakeupTree, WakeupSeq, Optimal, Exploring);
+      true ->
+        skip
+    end,          
+  case UpdateNeeded of
     skip ->
       ?debug(Logger, "SKIP~n", []),
-      ?debug(Logger, "~nSleeping:~n ~p~n", [AllSleeping]),
-      ?debug(Logger, "~nNotDep:~n ~p~n", [WakeupSeq]),
-      ?debug(Logger, "~nWakeup:~n ~p~n", [WakeupTree]),
       skip;
     NewWakeup ->
       %% Check bound
@@ -1056,15 +1062,21 @@ avoid_preemption(RaceActor, PWE, [TraceState|Rest] = Earlier, Preds, After) ->
      done = [[#event{actor = Actor} = Event]|_],
      previous_was_enabled = NPWE
     } = TraceState,
-  case Actor =/= RaceActor andalso not PWE of
+  case Actor =/= RaceActor of
     true ->
-      [First|BlockRest] = After,
-      {ok, [First|Earlier], BlockRest};
+      case
+        not PWE orelse
+        false =:= avoid_preemption(Actor, NPWE, Rest, Preds, [TraceState|After])
+      of
+        true ->
+          [First|BlockRest] = After,
+          {ok, [First|Earlier], BlockRest};
+        false -> false
+      end;
     false ->
       case check_initial(Event, Preds) =:= false of
         true -> false;
-        false ->
-          avoid_preemption(Actor, NPWE, Rest, Preds, [TraceState|After])
+        false -> avoid_preemption(Actor, NPWE, Rest, Preds, [TraceState|After])
       end
   end.
 
