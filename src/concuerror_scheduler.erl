@@ -110,7 +110,7 @@ run(Options) ->
        logger = Logger = ?opt(logger, Options),
        message_info = ets:new(message_info, [private]),
        non_racing_system = ?opt(non_racing_system, Options),
-       optimal = ?opt(optimal, Options),
+       optimal = Optimal = ?opt(optimal, Options),
        print_depth = ?opt(print_depth, Options),
        processes = ?opt(processes, Options),
        scheduling = ?opt(scheduling, Options),
@@ -122,6 +122,9 @@ run(Options) ->
        treat_as_normal = ?opt(treat_as_normal, Options),
        timeout = Timeout = ?opt(timeout, Options)
       },
+  put(logger, Logger),
+  put(optimal, Optimal),
+  put(scheduling_bound_type, ?opt(scheduling_bound_type, Options)),
   ok = concuerror_callback:start_first_process(FirstProcess, EntryPoint, Timeout),
   concuerror_logger:plan(Logger),
   ?time(Logger, "Exploration start"),
@@ -933,7 +936,6 @@ update_trace(Event, Clock, TraceState, Rest, NewOldTrace, Later, State) ->
   #scheduler_state{
      exploring = Exploring,
      logger = Logger,
-     optimal = Optimal,
      scheduling_bound_type = SchedulingBoundType
     } = State,
   #trace_state{
@@ -946,16 +948,21 @@ update_trace(Event, Clock, TraceState, Rest, NewOldTrace, Later, State) ->
   %% Find where one could add the wakeup and check bound
   {OverBound, Skip, Before, TargetTraceState, After, WakeupSeq} =
     case avoid_preemption(TraceState, Rest, PredBlocks, SchedulingBoundType) of
-      {ok, [TopTraceState|B], A} = _Foo->
-        #trace_state{index = NonPreemptIndex} = TopTraceState,
-        {_, TopNonDep} =
-          not_dep(NewOldTrace, Later, EarlyActor, NonPreemptIndex, Clock),
-        Block =
+      {ok, [TopTraceState|B], []} ->
+        WU =
+          [E || #trace_state{done = [[E]|_]} <- NewOldTrace] ++
+          [Event#event{label = undefined}] ++
+          [E || #trace_state{done = [[E]|_]} <- Later],
+        {false, false, B, TopTraceState, [], WU};
+      {ok, [TopTraceState|B], A} ->
+        [_|RevTail] = lists:reverse(A),
+        Tail = lists:reverse(RevTail),
+        WU =
+          [E || #trace_state{done = [[E]|_]} <- [TopTraceState|Tail]] ++
+          [E || #trace_state{done = [[E]|_]} <- NewOldTrace] ++
           [Event#event{label = undefined}] ++
           [E ||
-            #trace_state{done = [[E]|_]} <- [TopTraceState|A]],
-          ?debug(Logger, "~nBlock:~n~p~n",[Block]),
-        WU = TopNonDep ++ Block,
+            #trace_state{done = [[E]|_]} <- Later],
         {false, false, B, TopTraceState, A, WU};
       false ->
         OB =
@@ -979,15 +986,15 @@ update_trace(Event, Clock, TraceState, Rest, NewOldTrace, Later, State) ->
     case Skip of
       false ->
         #trace_state{
-           done = [[_TargetEvent]|Done],
+           done = [[TargetEvent]|Done],
            index = _TargetIndex,
            sleeping = Sleeping,
            wakeup_tree = WakeupTree
           } = TargetTraceState,
         AllSleeping = combine_sleeping_and_done(Sleeping, Done),
         %% See if insertion is required
-        ?debug(Logger, "Reversing at: ~s~n",[?pretty_s(_TargetIndex, _TargetEvent)]),
-        insert_wakeup(AllSleeping, WakeupTree, WakeupSeq, Optimal, Exploring);
+        ?debug(Logger, "Reversing at: ~s~n",[?pretty_s(_TargetIndex, TargetEvent)]),
+        insert_wakeup(AllSleeping, WakeupTree, WakeupSeq, TargetEvent, Exploring);
       true ->
         skip
     end,          
@@ -1105,21 +1112,33 @@ maybe_log_race(TraceState, Index, Event, State) ->
       ?unique(Logger, ?linfo, msg(show_races), [])
   end.
 
-insert_wakeup(Sleeping, Wakeup, NotDep, Optimal, Exploring) ->
-  case Optimal of
+insert_wakeup(Sleeping, Wakeup, NotDep, Racing, Exploring) ->
+  case get(optimal) of
     true ->
       SleepingHeads = [S || {_, [S|_]} <- Sleeping],
       insert_wakeup(SleepingHeads, Wakeup, NotDep, Exploring);
     false ->
-      Initials = get_initials(NotDep),
+      ?debug(get(logger), "~nNotDep:~n~p~n",[NotDep]),
+      Initials =
+        case get(scheduling_bound_type) =:= preemption of
+          true ->
+            [E ||
+              #event{actor = A} = E <- get_initial_blocks(NotDep),
+              A =/= Racing#event.actor
+            ];
+          false -> get_initials(NotDep)
+        end,
+      ?debug(get(logger), "~nInitials:~n~p~n",[Initials]),
       All =
         Sleeping ++
         [{false, [W]} || #backtrack_entry{event = W, wakeup_tree = []} <- Wakeup],
-      case existing(All, Initials) of
+      ?debug(get(logger), "~nAll:~n~p~n",[All]),
+      ?debug(get(logger), "~n", []),
+      case existing(All, Initials) orelse Initials =:= [] of
       %% case existing(All, NotDep) of
         true -> skip;
         false ->
-          [E|_] = NotDep,
+          [E|_] = Initials,
           Entry =
             #backtrack_entry{event = E, origin = Exploring, wakeup_tree = []},
           Wakeup ++ [Entry]
@@ -1202,6 +1221,46 @@ get_initials([Event|Rest], Initials, All) ->
       false -> Initials
     end,
   get_initials(Rest, NewInitials, [Event|All]).
+
+get_initial_blocks([First|NotDeps]) ->
+  get_initial_blocks(NotDeps, [], [First], First, true).
+
+get_initial_blocks([], Initials, _, TopEvent, TopIsCandidate) ->
+  FinalInitials =
+    case TopIsCandidate of
+      true -> [TopEvent|Initials];
+      false -> Initials
+    end,
+  lists:reverse(FinalInitials);
+get_initial_blocks([Event|Rest], Initials, All, TopEvent, TopIsCandidate) ->
+  ?debug(get(logger), "~n  Check:~p~n",[Event]),
+  [EventActor, TopActor] = [E#event.actor || E <- [Event, TopEvent]],
+  Fold =
+    fun(_, false) ->
+        ?debug(get(logger), "FAILED~n", []),
+        false;
+       (Trace, true) ->
+        ?debug(get(logger), "~n    Against:~p~n", [Trace]),
+        Trace#event.actor =:= EventActor orelse
+          false =:= concuerror_dependencies:dependent_safe(Trace, Event)
+    end,
+  {NewInitials, NewTopEvent, NewTopIsCandidate} =
+    case EventActor =:= TopActor of
+      true ->
+        NTIC = TopIsCandidate andalso lists:foldr(Fold, true, All),
+        {Initials, TopEvent, NTIC};
+      false ->
+        NTIC = lists:foldr(Fold, true, All),
+        NI =
+          case TopIsCandidate of
+            true -> [TopEvent|Initials];
+            false -> Initials
+          end,
+        ?debug(get(logger), "~n    NewTop:~p ~p~n", [TopIsCandidate, TopEvent]),
+        {NI, Event, NTIC}
+    end,
+  get_initial_blocks(
+    Rest, NewInitials, [Event|All], NewTopEvent, NewTopIsCandidate).
 
 existing([], _) -> false;
 existing([{Allowed, [#event{actor = A}|_]}|Rest], Initials) ->
