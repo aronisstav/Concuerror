@@ -354,7 +354,7 @@ finalize([{Key, Value}|Rest], AccIn) ->
         {error, _} -> file_error(Key, Value)
       end;
     ignore_first_crash ->
-      "0.11" = ?VSN,
+      "0.11" ++ _ = ?VSN,
       Warn =
         "The ignore_first_crash flag has been deprecated. Use --keep_going"
         " instead.",
