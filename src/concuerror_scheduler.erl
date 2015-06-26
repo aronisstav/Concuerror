@@ -1078,7 +1078,7 @@ avoid_preemption(RaceActor, PWE, [TraceState|Rest] = Earlier, Preds, After) ->
         true ->
           [First|BlockRest] = After,
           {ok, [First|Earlier], BlockRest};
-        false -> false
+        false -> skip
       end;
     false ->
       case check_initial(Event, Preds) =:= false of
