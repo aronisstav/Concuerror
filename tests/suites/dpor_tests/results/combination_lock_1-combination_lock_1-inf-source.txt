@@ -7,7 +7,6 @@ Concuerror started with options:
    {entry_point,{combination_lock_1,combination_lock_1,[]}},
    {files,["/home/stavros/git/Concuerror/tests/suites/dpor_tests/src/combination_lock_1.erl"]},
    {ignore_error,[]},
-   {ignore_first_crash,true},
    {instant_delivery,false},
    {interleaving_bound,infinity},
    {keep_going,true},
@@ -275,12 +274,12 @@ Interleaving info:
   11: P.1: true = ets:insert(table, {z,1})
     in combination_lock_1.erl line 15
   12: P.1: exits normally
-  13: P.3: [{x,0}] = ets:lookup(table, x)
-    in combination_lock_1.erl line 29
-  14: P.3: exits normally
-  15: P.4: [{w,0}] = ets:lookup(table, w)
+  13: P.4: [{w,0}] = ets:lookup(table, w)
     in combination_lock_1.erl line 43
-  16: P.4: exits normally
+  14: P.4: exits normally
+  15: P.3: [{x,0}] = ets:lookup(table, x)
+    in combination_lock_1.erl line 29
+  16: P.3: exits normally
   17: P.2: true = ets:insert(table, {x,1})
     in combination_lock_1.erl line 17
   18: P.2: true = ets:insert(table, {a,1})
@@ -369,4 +368,4 @@ You can see pairs of racing instructions (in the report and --graph) with '--sho
 ################################################################################
 
 Done! (Exit status: completed)
-  Summary: 6 errors, 12/12 interleavings explored (6 sleep-set blocked)
+  Summary: 6 errors, 14/14 interleavings explored (8 sleep-set blocked)
