@@ -943,8 +943,10 @@ update_trace(Event, Clock, TraceState, Rest, NewOldTrace, Later, State) ->
      index = EarlyIndex,
      scheduling_bound = SchedulingBound
     } = TraceState,
-  {PredBlocks, NotDep} =
+  {PredBlocksI, NotDep} =
     not_dep(NewOldTrace, Later, EarlyActor, EarlyIndex, Clock),
+  PredBlocks = PredBlocksI ++ [Event#event{label = undefined}],
+  ?debug(Logger, "~nPredBlocks:~n ~p~n", [PredBlocks]),
   %% Find where one could add the wakeup and check bound
   {OverBound, Skip, Before, TargetTraceState, After, WakeupSeq} =
     case avoid_preemption(TraceState, Rest, PredBlocks, SchedulingBoundType) of
@@ -969,7 +971,6 @@ update_trace(Event, Clock, TraceState, Rest, NewOldTrace, Later, State) ->
           case SchedulingBoundType of
             none -> false;
             preemption ->
-              ?debug(Logger, "~nPredBlocks:~n ~p~n", [PredBlocks]),
               SchedulingBound - 1 < 0;
             delay ->
               #trace_state{

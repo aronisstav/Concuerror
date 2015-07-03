@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
-SUITE=${1-bounding_tests}
-TEST=${2-last_zero}
+SUITE=${1-dpor_tests}
+TEST=${2-same_messages_4}
 BOUND="-c preemption -b 0"
-VERBOSITY= #-v9
+VERBOSITY="-v9"
 
 cd $(dirname $0)
 CONCUERROR=../concuerror
 CDIR=$(dirname $CONCUERROR)
 make -j dev -C $CDIR
-$CONCUERROR -k --print_depth 22 --graph $CDIR/g.dot --show_races $BOUND $VERBOSITY -f suites/$SUITE/src/$TEST.erl -m $TEST
+$CONCUERROR -k --print_depth 22 --graph $CDIR/g.dot --show_races $BOUND $VERBOSITY -f suites/$SUITE/src/$TEST.erl -m $TEST -t $TEST
 dot -Tsvg -o $CDIR/g.svg $CDIR/g.dot
