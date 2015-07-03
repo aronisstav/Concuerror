@@ -1,0 +1,602 @@
+################################################################################
+
+Concuerror started with options:
+  [{after_timeout,infinity},
+   {assume_racing,false},
+   {depth_bound,5000},
+   {entry_point,{last_zero,test,[]}},
+   {files,["/home/stavros/git/Concuerror/tests/suites/bounding_tests/src/last_zero.erl"]},
+   {ignore_error,[]},
+   {instant_delivery,false},
+   {interleaving_bound,infinity},
+   {keep_going,true},
+   {non_racing_system,[]},
+   {optimal,false},
+   {print_depth,20},
+   {scheduling,round_robin},
+   {scheduling_bound,5},
+   {scheduling_bound_type,preemption},
+   {show_races,false},
+   {strict_scheduling,false},
+   {symbolic_names,true},
+   {timeout,infinity},
+   {treat_as_normal,[]}]
+################################################################################
+
+Erroneous interleaving 1:
+* Blocked at a 'receive' (when all other processes have exited):
+    P in last_zero.erl line 18
+--------------------------------------------------------------------------------
+
+Interleaving info:
+   1: P: table = ets:new(table, [public,named_table])
+    in last_zero.erl line 14
+   2: P: true = ets:insert(table, {0,0})
+    in last_zero.erl line 15
+   3: P: true = ets:insert(table, {1,0})
+    in last_zero.erl line 15
+   4: P: true = ets:insert(table, {2,0})
+    in last_zero.erl line 15
+   5: P: true = ets:insert(table, {3,0})
+    in last_zero.erl line 15
+   6: P: P.1 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-1-'.0>,[]])
+    in erlang.erl line 2494
+   7: P: P.2 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+   8: P: P.3 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+   9: P: P.4 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+  10: P.1: [{3,0}] = ets:lookup(table, 3)
+    in last_zero.erl line 36
+  11: P.1: exits normally
+  12: P.2: [{0,0}] = ets:lookup(table, 0)
+    in last_zero.erl line 36
+  13: P.2: true = ets:insert(table, {1,1})
+    in last_zero.erl line 33
+  14: P.2: exits normally
+  15: P.3: [{1,1}] = ets:lookup(table, 1)
+    in last_zero.erl line 36
+  16: P.3: true = ets:insert(table, {2,2})
+    in last_zero.erl line 33
+  17: P.3: exits normally
+  18: P.4: [{2,2}] = ets:lookup(table, 2)
+    in last_zero.erl line 36
+  19: P.4: true = ets:insert(table, {3,3})
+    in last_zero.erl line 33
+  20: P.4: exits normally
+################################################################################
+
+Erroneous interleaving 2:
+* Blocked at a 'receive' (when all other processes have exited):
+    P in last_zero.erl line 18
+--------------------------------------------------------------------------------
+
+Interleaving info:
+   1: P: table = ets:new(table, [public,named_table])
+    in last_zero.erl line 14
+   2: P: true = ets:insert(table, {0,0})
+    in last_zero.erl line 15
+   3: P: true = ets:insert(table, {1,0})
+    in last_zero.erl line 15
+   4: P: true = ets:insert(table, {2,0})
+    in last_zero.erl line 15
+   5: P: true = ets:insert(table, {3,0})
+    in last_zero.erl line 15
+   6: P: P.1 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-1-'.0>,[]])
+    in erlang.erl line 2494
+   7: P: P.2 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+   8: P: P.3 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+   9: P: P.4 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+  10: P.1: [{3,0}] = ets:lookup(table, 3)
+    in last_zero.erl line 36
+  11: P.1: exits normally
+  12: P.2: [{0,0}] = ets:lookup(table, 0)
+    in last_zero.erl line 36
+  13: P.2: true = ets:insert(table, {1,1})
+    in last_zero.erl line 33
+  14: P.2: exits normally
+  15: P.4: [{2,0}] = ets:lookup(table, 2)
+    in last_zero.erl line 36
+  16: P.4: true = ets:insert(table, {3,1})
+    in last_zero.erl line 33
+  17: P.4: exits normally
+  18: P.3: [{1,1}] = ets:lookup(table, 1)
+    in last_zero.erl line 36
+  19: P.3: true = ets:insert(table, {2,2})
+    in last_zero.erl line 33
+  20: P.3: exits normally
+################################################################################
+
+Erroneous interleaving 3:
+* Blocked at a 'receive' (when all other processes have exited):
+    P in last_zero.erl line 18
+--------------------------------------------------------------------------------
+
+Interleaving info:
+   1: P: table = ets:new(table, [public,named_table])
+    in last_zero.erl line 14
+   2: P: true = ets:insert(table, {0,0})
+    in last_zero.erl line 15
+   3: P: true = ets:insert(table, {1,0})
+    in last_zero.erl line 15
+   4: P: true = ets:insert(table, {2,0})
+    in last_zero.erl line 15
+   5: P: true = ets:insert(table, {3,0})
+    in last_zero.erl line 15
+   6: P: P.1 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-1-'.0>,[]])
+    in erlang.erl line 2494
+   7: P: P.2 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+   8: P: P.3 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+   9: P: P.4 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+  10: P.1: [{3,0}] = ets:lookup(table, 3)
+    in last_zero.erl line 36
+  11: P.1: exits normally
+  12: P.3: [{1,0}] = ets:lookup(table, 1)
+    in last_zero.erl line 36
+  13: P.3: true = ets:insert(table, {2,1})
+    in last_zero.erl line 33
+  14: P.3: exits normally
+  15: P.4: [{2,1}] = ets:lookup(table, 2)
+    in last_zero.erl line 36
+  16: P.4: true = ets:insert(table, {3,2})
+    in last_zero.erl line 33
+  17: P.4: exits normally
+  18: P.2: [{0,0}] = ets:lookup(table, 0)
+    in last_zero.erl line 36
+  19: P.2: true = ets:insert(table, {1,1})
+    in last_zero.erl line 33
+  20: P.2: exits normally
+################################################################################
+
+Erroneous interleaving 4:
+* Blocked at a 'receive' (when all other processes have exited):
+    P in last_zero.erl line 18
+--------------------------------------------------------------------------------
+
+Interleaving info:
+   1: P: table = ets:new(table, [public,named_table])
+    in last_zero.erl line 14
+   2: P: true = ets:insert(table, {0,0})
+    in last_zero.erl line 15
+   3: P: true = ets:insert(table, {1,0})
+    in last_zero.erl line 15
+   4: P: true = ets:insert(table, {2,0})
+    in last_zero.erl line 15
+   5: P: true = ets:insert(table, {3,0})
+    in last_zero.erl line 15
+   6: P: P.1 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-1-'.0>,[]])
+    in erlang.erl line 2494
+   7: P: P.2 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+   8: P: P.3 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+   9: P: P.4 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+  10: P.1: [{3,0}] = ets:lookup(table, 3)
+    in last_zero.erl line 36
+  11: P.1: exits normally
+  12: P.4: [{2,0}] = ets:lookup(table, 2)
+    in last_zero.erl line 36
+  13: P.4: true = ets:insert(table, {3,1})
+    in last_zero.erl line 33
+  14: P.4: exits normally
+  15: P.3: [{1,0}] = ets:lookup(table, 1)
+    in last_zero.erl line 36
+  16: P.3: true = ets:insert(table, {2,1})
+    in last_zero.erl line 33
+  17: P.3: exits normally
+  18: P.2: [{0,0}] = ets:lookup(table, 0)
+    in last_zero.erl line 36
+  19: P.2: true = ets:insert(table, {1,1})
+    in last_zero.erl line 33
+  20: P.2: exits normally
+################################################################################
+
+Erroneous interleaving 5:
+* Blocked at a 'receive' (when all other processes have exited):
+    P in last_zero.erl line 18
+--------------------------------------------------------------------------------
+
+Interleaving info:
+   1: P: table = ets:new(table, [public,named_table])
+    in last_zero.erl line 14
+   2: P: true = ets:insert(table, {0,0})
+    in last_zero.erl line 15
+   3: P: true = ets:insert(table, {1,0})
+    in last_zero.erl line 15
+   4: P: true = ets:insert(table, {2,0})
+    in last_zero.erl line 15
+   5: P: true = ets:insert(table, {3,0})
+    in last_zero.erl line 15
+   6: P: P.1 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-1-'.0>,[]])
+    in erlang.erl line 2494
+   7: P: P.2 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+   8: P: P.3 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+   9: P: P.4 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+  10: P.2: [{0,0}] = ets:lookup(table, 0)
+    in last_zero.erl line 36
+  11: P.2: true = ets:insert(table, {1,1})
+    in last_zero.erl line 33
+  12: P.2: exits normally
+  13: P.3: [{1,1}] = ets:lookup(table, 1)
+    in last_zero.erl line 36
+  14: P.3: true = ets:insert(table, {2,2})
+    in last_zero.erl line 33
+  15: P.3: exits normally
+  16: P.4: [{2,2}] = ets:lookup(table, 2)
+    in last_zero.erl line 36
+  17: P.4: true = ets:insert(table, {3,3})
+    in last_zero.erl line 33
+  18: P.4: exits normally
+  19: P.1: [{3,3}] = ets:lookup(table, 3)
+    in last_zero.erl line 36
+  20: P.1: [{2,2}] = ets:lookup(table, 2)
+    in last_zero.erl line 36
+  21: P.1: [{1,1}] = ets:lookup(table, 1)
+    in last_zero.erl line 36
+  22: P.1: exits normally
+################################################################################
+
+Erroneous interleaving 6:
+* Blocked at a 'receive' (when all other processes have exited):
+    P in last_zero.erl line 18
+--------------------------------------------------------------------------------
+
+Interleaving info:
+   1: P: table = ets:new(table, [public,named_table])
+    in last_zero.erl line 14
+   2: P: true = ets:insert(table, {0,0})
+    in last_zero.erl line 15
+   3: P: true = ets:insert(table, {1,0})
+    in last_zero.erl line 15
+   4: P: true = ets:insert(table, {2,0})
+    in last_zero.erl line 15
+   5: P: true = ets:insert(table, {3,0})
+    in last_zero.erl line 15
+   6: P: P.1 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-1-'.0>,[]])
+    in erlang.erl line 2494
+   7: P: P.2 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+   8: P: P.3 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+   9: P: P.4 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+  10: P.2: [{0,0}] = ets:lookup(table, 0)
+    in last_zero.erl line 36
+  11: P.2: true = ets:insert(table, {1,1})
+    in last_zero.erl line 33
+  12: P.2: exits normally
+  13: P.4: [{2,0}] = ets:lookup(table, 2)
+    in last_zero.erl line 36
+  14: P.4: true = ets:insert(table, {3,1})
+    in last_zero.erl line 33
+  15: P.4: exits normally
+  16: P.1: [{3,1}] = ets:lookup(table, 3)
+    in last_zero.erl line 36
+  17: P.1: [{2,0}] = ets:lookup(table, 2)
+    in last_zero.erl line 36
+  18: P.1: exits normally
+  19: P.3: [{1,1}] = ets:lookup(table, 1)
+    in last_zero.erl line 36
+  20: P.3: true = ets:insert(table, {2,2})
+    in last_zero.erl line 33
+  21: P.3: exits normally
+################################################################################
+
+Erroneous interleaving 7:
+* Blocked at a 'receive' (when all other processes have exited):
+    P in last_zero.erl line 18
+--------------------------------------------------------------------------------
+
+Interleaving info:
+   1: P: table = ets:new(table, [public,named_table])
+    in last_zero.erl line 14
+   2: P: true = ets:insert(table, {0,0})
+    in last_zero.erl line 15
+   3: P: true = ets:insert(table, {1,0})
+    in last_zero.erl line 15
+   4: P: true = ets:insert(table, {2,0})
+    in last_zero.erl line 15
+   5: P: true = ets:insert(table, {3,0})
+    in last_zero.erl line 15
+   6: P: P.1 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-1-'.0>,[]])
+    in erlang.erl line 2494
+   7: P: P.2 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+   8: P: P.3 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+   9: P: P.4 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+  10: P.2: [{0,0}] = ets:lookup(table, 0)
+    in last_zero.erl line 36
+  11: P.2: true = ets:insert(table, {1,1})
+    in last_zero.erl line 33
+  12: P.2: exits normally
+  13: P.4: [{2,0}] = ets:lookup(table, 2)
+    in last_zero.erl line 36
+  14: P.4: true = ets:insert(table, {3,1})
+    in last_zero.erl line 33
+  15: P.4: exits normally
+  16: P.3: [{1,1}] = ets:lookup(table, 1)
+    in last_zero.erl line 36
+  17: P.3: true = ets:insert(table, {2,2})
+    in last_zero.erl line 33
+  18: P.3: exits normally
+  19: P.1: [{3,1}] = ets:lookup(table, 3)
+    in last_zero.erl line 36
+  20: P.1: [{2,2}] = ets:lookup(table, 2)
+    in last_zero.erl line 36
+  21: P.1: [{1,1}] = ets:lookup(table, 1)
+    in last_zero.erl line 36
+  22: P.1: exits normally
+################################################################################
+
+Erroneous interleaving 8:
+* Blocked at a 'receive' (when all other processes have exited):
+    P in last_zero.erl line 18
+--------------------------------------------------------------------------------
+
+Interleaving info:
+   1: P: table = ets:new(table, [public,named_table])
+    in last_zero.erl line 14
+   2: P: true = ets:insert(table, {0,0})
+    in last_zero.erl line 15
+   3: P: true = ets:insert(table, {1,0})
+    in last_zero.erl line 15
+   4: P: true = ets:insert(table, {2,0})
+    in last_zero.erl line 15
+   5: P: true = ets:insert(table, {3,0})
+    in last_zero.erl line 15
+   6: P: P.1 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-1-'.0>,[]])
+    in erlang.erl line 2494
+   7: P: P.2 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+   8: P: P.3 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+   9: P: P.4 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+  10: P.3: [{1,0}] = ets:lookup(table, 1)
+    in last_zero.erl line 36
+  11: P.3: true = ets:insert(table, {2,1})
+    in last_zero.erl line 33
+  12: P.3: exits normally
+  13: P.4: [{2,1}] = ets:lookup(table, 2)
+    in last_zero.erl line 36
+  14: P.4: true = ets:insert(table, {3,2})
+    in last_zero.erl line 33
+  15: P.4: exits normally
+  16: P.1: [{3,2}] = ets:lookup(table, 3)
+    in last_zero.erl line 36
+  17: P.1: [{2,1}] = ets:lookup(table, 2)
+    in last_zero.erl line 36
+  18: P.1: [{1,0}] = ets:lookup(table, 1)
+    in last_zero.erl line 36
+  19: P.1: exits normally
+  20: P.2: [{0,0}] = ets:lookup(table, 0)
+    in last_zero.erl line 36
+  21: P.2: true = ets:insert(table, {1,1})
+    in last_zero.erl line 33
+  22: P.2: exits normally
+################################################################################
+
+Erroneous interleaving 9:
+* Blocked at a 'receive' (when all other processes have exited):
+    P in last_zero.erl line 18
+--------------------------------------------------------------------------------
+
+Interleaving info:
+   1: P: table = ets:new(table, [public,named_table])
+    in last_zero.erl line 14
+   2: P: true = ets:insert(table, {0,0})
+    in last_zero.erl line 15
+   3: P: true = ets:insert(table, {1,0})
+    in last_zero.erl line 15
+   4: P: true = ets:insert(table, {2,0})
+    in last_zero.erl line 15
+   5: P: true = ets:insert(table, {3,0})
+    in last_zero.erl line 15
+   6: P: P.1 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-1-'.0>,[]])
+    in erlang.erl line 2494
+   7: P: P.2 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+   8: P: P.3 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+   9: P: P.4 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+  10: P.3: [{1,0}] = ets:lookup(table, 1)
+    in last_zero.erl line 36
+  11: P.3: true = ets:insert(table, {2,1})
+    in last_zero.erl line 33
+  12: P.3: exits normally
+  13: P.4: [{2,1}] = ets:lookup(table, 2)
+    in last_zero.erl line 36
+  14: P.4: true = ets:insert(table, {3,2})
+    in last_zero.erl line 33
+  15: P.4: exits normally
+  16: P.2: [{0,0}] = ets:lookup(table, 0)
+    in last_zero.erl line 36
+  17: P.2: true = ets:insert(table, {1,1})
+    in last_zero.erl line 33
+  18: P.2: exits normally
+  19: P.1: [{3,2}] = ets:lookup(table, 3)
+    in last_zero.erl line 36
+  20: P.1: [{2,1}] = ets:lookup(table, 2)
+    in last_zero.erl line 36
+  21: P.1: [{1,1}] = ets:lookup(table, 1)
+    in last_zero.erl line 36
+  22: P.1: exits normally
+################################################################################
+
+Erroneous interleaving 10:
+* Blocked at a 'receive' (when all other processes have exited):
+    P in last_zero.erl line 18
+--------------------------------------------------------------------------------
+
+Interleaving info:
+   1: P: table = ets:new(table, [public,named_table])
+    in last_zero.erl line 14
+   2: P: true = ets:insert(table, {0,0})
+    in last_zero.erl line 15
+   3: P: true = ets:insert(table, {1,0})
+    in last_zero.erl line 15
+   4: P: true = ets:insert(table, {2,0})
+    in last_zero.erl line 15
+   5: P: true = ets:insert(table, {3,0})
+    in last_zero.erl line 15
+   6: P: P.1 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-1-'.0>,[]])
+    in erlang.erl line 2494
+   7: P: P.2 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+   8: P: P.3 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+   9: P: P.4 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+  10: P.4: [{2,0}] = ets:lookup(table, 2)
+    in last_zero.erl line 36
+  11: P.4: true = ets:insert(table, {3,1})
+    in last_zero.erl line 33
+  12: P.4: exits normally
+  13: P.1: [{3,1}] = ets:lookup(table, 3)
+    in last_zero.erl line 36
+  14: P.1: [{2,0}] = ets:lookup(table, 2)
+    in last_zero.erl line 36
+  15: P.1: exits normally
+  16: P.3: [{1,0}] = ets:lookup(table, 1)
+    in last_zero.erl line 36
+  17: P.3: true = ets:insert(table, {2,1})
+    in last_zero.erl line 33
+  18: P.3: exits normally
+  19: P.2: [{0,0}] = ets:lookup(table, 0)
+    in last_zero.erl line 36
+  20: P.2: true = ets:insert(table, {1,1})
+    in last_zero.erl line 33
+  21: P.2: exits normally
+################################################################################
+
+Erroneous interleaving 11:
+* Blocked at a 'receive' (when all other processes have exited):
+    P in last_zero.erl line 18
+--------------------------------------------------------------------------------
+
+Interleaving info:
+   1: P: table = ets:new(table, [public,named_table])
+    in last_zero.erl line 14
+   2: P: true = ets:insert(table, {0,0})
+    in last_zero.erl line 15
+   3: P: true = ets:insert(table, {1,0})
+    in last_zero.erl line 15
+   4: P: true = ets:insert(table, {2,0})
+    in last_zero.erl line 15
+   5: P: true = ets:insert(table, {3,0})
+    in last_zero.erl line 15
+   6: P: P.1 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-1-'.0>,[]])
+    in erlang.erl line 2494
+   7: P: P.2 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+   8: P: P.3 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+   9: P: P.4 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+  10: P.4: [{2,0}] = ets:lookup(table, 2)
+    in last_zero.erl line 36
+  11: P.4: true = ets:insert(table, {3,1})
+    in last_zero.erl line 33
+  12: P.4: exits normally
+  13: P.3: [{1,0}] = ets:lookup(table, 1)
+    in last_zero.erl line 36
+  14: P.3: true = ets:insert(table, {2,1})
+    in last_zero.erl line 33
+  15: P.3: exits normally
+  16: P.1: [{3,1}] = ets:lookup(table, 3)
+    in last_zero.erl line 36
+  17: P.1: [{2,1}] = ets:lookup(table, 2)
+    in last_zero.erl line 36
+  18: P.1: [{1,0}] = ets:lookup(table, 1)
+    in last_zero.erl line 36
+  19: P.1: exits normally
+  20: P.2: [{0,0}] = ets:lookup(table, 0)
+    in last_zero.erl line 36
+  21: P.2: true = ets:insert(table, {1,1})
+    in last_zero.erl line 33
+  22: P.2: exits normally
+################################################################################
+
+Erroneous interleaving 12:
+* Blocked at a 'receive' (when all other processes have exited):
+    P in last_zero.erl line 18
+--------------------------------------------------------------------------------
+
+Interleaving info:
+   1: P: table = ets:new(table, [public,named_table])
+    in last_zero.erl line 14
+   2: P: true = ets:insert(table, {0,0})
+    in last_zero.erl line 15
+   3: P: true = ets:insert(table, {1,0})
+    in last_zero.erl line 15
+   4: P: true = ets:insert(table, {2,0})
+    in last_zero.erl line 15
+   5: P: true = ets:insert(table, {3,0})
+    in last_zero.erl line 15
+   6: P: P.1 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-1-'.0>,[]])
+    in erlang.erl line 2494
+   7: P: P.2 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+   8: P: P.3 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+   9: P: P.4 = erlang:spawn(erlang, apply, [#Fun<last_zero.'-last_zero/1-fun-2-'.0>,[]])
+    in erlang.erl line 2494
+  10: P.4: [{2,0}] = ets:lookup(table, 2)
+    in last_zero.erl line 36
+  11: P.4: true = ets:insert(table, {3,1})
+    in last_zero.erl line 33
+  12: P.4: exits normally
+  13: P.3: [{1,0}] = ets:lookup(table, 1)
+    in last_zero.erl line 36
+  14: P.3: true = ets:insert(table, {2,1})
+    in last_zero.erl line 33
+  15: P.3: exits normally
+  16: P.2: [{0,0}] = ets:lookup(table, 0)
+    in last_zero.erl line 36
+  17: P.2: true = ets:insert(table, {1,1})
+    in last_zero.erl line 33
+  18: P.2: exits normally
+  19: P.1: [{3,1}] = ets:lookup(table, 3)
+    in last_zero.erl line 36
+  20: P.1: [{2,1}] = ets:lookup(table, 2)
+    in last_zero.erl line 36
+  21: P.1: [{1,1}] = ets:lookup(table, 1)
+    in last_zero.erl line 36
+  22: P.1: exits normally
+################################################################################
+
+Warnings:
+--------------------------------------------------------------------------------
+
+Continuing after error
+Some interleavings were 'sleep-set blocked'. This is expected if you have specified '--optimal false', but reveals wasted effort.
+
+################################################################################
+
+Info:
+--------------------------------------------------------------------------------
+
+Instrumented last_zero
+Instrumented io_lib
+Instrumented lists
+Instrumented erlang
+You can see pairs of racing instructions (in the report and --graph) with '--show_races true'
+
+################################################################################
+
+Done! (Exit status: completed)
+  Summary: 12 errors, 13/13 interleavings explored (1 sleep-set blocked)
