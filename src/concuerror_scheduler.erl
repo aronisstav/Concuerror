@@ -63,6 +63,7 @@
           keep_going         = false   :: boolean(),
           logger                       :: pid(),
           last_scheduled               :: pid(),
+          max_wakeup         = 0       :: integer(),
           message_info                 :: message_info(),
           need_to_replay     = false   :: boolean(),
           non_racing_system  = []      :: [atom()],
@@ -143,7 +144,11 @@ explore(State) ->
       {HasMore, NewState} = has_more_to_explore(LogState),
       case HasMore of
         true -> explore(NewState);
-        false -> ok
+        false ->
+          Logger = State#scheduler_state.logger,
+          MaxWakeup = State#scheduler_state.max_wakeup,
+          ?log(Logger, ?linfo, "Max Wakeup: ~p~n", [MaxWakeup]),
+          ok
       end;
     {crash, Class, Reason} ->
       #scheduler_state{trace = [_|Trace]} = UpdatedState,
@@ -251,6 +256,14 @@ get_next_event(
   {none, NewState};
 get_next_event(#scheduler_state{logger = _Logger, trace = [Last|_]} = State) ->
   #trace_state{wakeup_tree = WakeupTree} = Last,
+  %% ?time(_Logger, "Size... "),
+  %% WakeupSize = erts_debug:size(WakeupTree),
+  %% ?time(_Logger, "ok~n"),
+  %% State =
+  %%   case WakeupSize > State0#scheduler_state.max_wakeup of
+  %%     true -> State0#scheduler_state{max_wakeup = WakeupSize};
+  %%     false -> State0
+  %%   end,
   case WakeupTree of
     [] ->
       Event = #event{label = make_ref()},
