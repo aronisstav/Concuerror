@@ -201,7 +201,7 @@ do_analysis(Target, PreBound, Dpor, Options) ->
 -type instr()      :: term().
 -type transition() :: {concuerror_lid:lid(), instr(), list()}.
 -type lid_trace()  :: [{concuerror_lid:lid(), transition(), lid_trace()}].
--type clock_map()  :: dict(). %% dict(concuerror_lid:lid(), clock_vector()).
+-type clock_map()  :: dict:dict(). %% dict(concuerror_lid:lid(), clock_vector()).
 -type clock_vector() :: orddict:orddict(). %% dict(concuerror_lid:lid(), s_i()).
 
 -record(trace_state, {
@@ -214,7 +214,7 @@ do_analysis(Target, PreBound, Dpor, Options) ->
           backtrack = []                :: lid_trace(),
           done      = ordsets:new()     :: ordsets:ordset(concuerror_lid:lid()),
           sleep_set = ordsets:new()     :: ordsets:ordset(concuerror_lid:lid()),
-          nexts     = dict:new()        :: dict(), % dict(lid(), instr()),
+          nexts     = dict:new()        :: dict:dict(), % dict(lid(), instr()),
           clock_map = empty_clock_map() :: clock_map(),
           preemptions = 0               :: non_neg_integer(),
           race_checked = false          :: boolean(),

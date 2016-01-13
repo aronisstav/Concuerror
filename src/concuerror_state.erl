@@ -27,7 +27,7 @@
 -define(TERM_TO_BIN(X), term_to_binary(X, ?OPT_T2B)).
 -else.
 -type state() :: {{concuerror_lid:lid(),pos_integer()} | 'undefined',
-                  queue(),
+                  queue:queue(),
                   {concuerror_lid:lid(),pos_integer()} | 'undefined'}.
 -define(BIN_TO_TERM(X), X).
 -define(TERM_TO_BIN(X), X).

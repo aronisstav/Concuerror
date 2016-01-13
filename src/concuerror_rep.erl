@@ -424,7 +424,7 @@ rep_after_notify() ->
 %%
 %% Called first thing after a message has been received, to inform the scheduler
 %% about the message received and the sender.
--spec rep_receive_notify(pid(), dict(), term()) -> 'ok'.
+-spec rep_receive_notify(pid(), dict:dict(), term()) -> 'ok'.
 rep_receive_notify(From, CV, Msg) ->
     check_unknown_process(),
     concuerror_sched:notify('receive', {From, CV, Msg}, prev),

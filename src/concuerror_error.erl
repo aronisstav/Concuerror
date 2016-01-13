@@ -28,6 +28,7 @@
 new({deadlock, _Set} = Deadlock) -> Deadlock;
 new({{assertion_failed, Details}, _Any}) -> {assertion_violation, Details};
 new({{assertEqual_failed, Details}, _Any}) -> {assertion_violation, Details};
+new({{assertEqual, Details}, _Any}) -> {assertion_violation, Details};
 new(Reason) -> {exception, Reason}.
 
 -spec type(error()) -> nonempty_string().
