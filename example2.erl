@@ -3,66 +3,70 @@
 -export([test/0]).
 -export([scenarios/0]).
 
+-ifndef(SIZE).
+-define(SIZE, 6).
+-endif.
+
 scenarios() -> [{test, inf, R} || R <- [dpor, source]].
 
 %%%-----------------------------------------------------------------------------
 
 test() ->
-  test(6).
+  test(?SIZE).
 
 %%%-----------------------------------------------------------------------------
 
 test(Total) ->
   ets:new(table, [public, named_table]),
-  _ = [in({X, N}, 0) || X <- [x, y, z], N <- lists:seq(1, Total)],
-  _ = spawn(fun() -> out({x, Total}) end),
-  create(Total - 1),
-  unlock(1),
+  _ = [write({X, N}, 0) || X <- [x, y, z], N <- lists:seq(1, Total)],
+  _ = spawn(fun() -> read({x, Total}) end),
+  spawn_all_ps(Total - 1),
+  spawn_qrs(1),
   block().
 
-unlock(N) ->
-  YRoutine = fun() -> in({y, N}, 1) end,
-  ZRoutine =
+spawn_qrs(N) ->
+  Q_Fun = fun() -> write({y, N}, 1) end,
+  R_Fun =
     fun() ->
-        case out({y, N}) of
-          0 -> in({z, N}, 1);
+        case read({y, N}) of
+          0 -> write({z, N}, 1);
           1 -> ok
         end
     end,
-  XRoutine =
+  S_Fun =
     fun() ->
-        case out({z, N}) of
+        case read({z, N}) of
           0 -> ok;
           1 ->
-            case out({y, N}) of
-              0 -> in({x, N}, 1);
+            case read({y, N}) of
+              0 -> write({x, N}, 1);
               1 -> ok
             end
         end
     end,
-  _ = spawn(YRoutine),
-  _ = spawn(ZRoutine),
-  _ = spawn(XRoutine),
+  _ = spawn(Q_Fun),
+  _ = spawn(R_Fun),
+  _ = spawn(S_Fun),
   ok.
 
-create(0) -> ok;
-create(N) ->
-  Fun =
+spawn_all_ps(0) -> ok;
+spawn_all_ps(N) ->
+  P_Fun =
     fun() ->
-        case out({x, N}) of
-          1 -> unlock(N + 1);
+        case read({x, N}) of
+          1 -> spawn_qrs(N + 1);
           0 -> ok
         end
     end,
-  _ = spawn(Fun),
-  create(N - 1).
+  _ = spawn(P_Fun),
+  spawn_all_ps(N - 1).
 
 %%%-----------------------------------------------------------------------------
 
-in(K, V) ->
+write(K, V) ->
   ets:insert(table, {K, V}).
 
-out(K) ->
+read(K) ->
   [{K, V}] = ets:lookup(table, K),
   V.
 

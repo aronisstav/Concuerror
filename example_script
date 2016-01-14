@@ -1,0 +1,5 @@
+for i in 1 2 4 8 16; do
+  ./concuerror -f example2.erl -t example2 test -DSIZE=$i -p0 -q --dpor_source
+  echo -n "$i & "
+  head -n1 results.txt | awk '{print $4 & $2 \\\\}'
+done
