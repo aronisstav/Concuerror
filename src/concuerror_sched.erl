@@ -150,9 +150,9 @@ analyze({Mod,Fun,Args}=Target, Files, Options) ->
                 MemoryStr =
                     try erlang:memory(maximum) of
                         N ->
-                            MB = N / (1024*1024),
+                            MB = N div (1024*1024),
                             %% io_lib:format(" (using ~.2fMB)",[MB])
-                            io_lib:format(" ~.2fMB",[MB])
+                            io_lib:format(" ~pMB",[MB])
                     catch
                         _:_ ->
                             ""
