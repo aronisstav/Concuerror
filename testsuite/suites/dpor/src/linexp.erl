@@ -1,6 +1,6 @@
--module(example2).
+-module(linexp).
 
--export([test/0]).
+-export([test/0, test/1]).
 -export([scenarios/0]).
 
 -ifndef(SIZE).

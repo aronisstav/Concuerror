@@ -15,3 +15,4 @@
 clean.sh
 *.mk
 concuerror
+concuerror_mem
