@@ -10,7 +10,7 @@ cat <<EOF
 \texttt{n} & Traces explored & max & memory & max & memory \\\\
 \midrule
 EOF
-for i in 7 8; do
+for i in $(seq 1 9); do
 
     echo -n "$i &"
 
