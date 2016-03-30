@@ -3,11 +3,11 @@
 T=wakeup_stress
 
 cat <<EOF
-\begin{tabular}{lrrrrr}
+\begin{tabular}{lrrrrrrr}
 \toprule
-        & & \multicolumn{2}{c}{source} & \multicolumn{2}{c}{optimal} \\\\
-             \cmidrule(r){3-4}\cmidrule(r){5-6}
-\texttt{n} & Traces explored & max & memory & max & memory \\\\
+        & & \multicolumn{3}{c}{source} & \multicolumn{3}{c}{optimal} \\\\
+             \cmidrule(r){3-5}\cmidrule(r){6-8}
+\texttt{n} & Traces explored & max & time & memory & max & time & memory \\\\
 \midrule
 EOF
 for i in $(seq 1 9); do
@@ -17,11 +17,11 @@ for i in $(seq 1 9); do
     Prefix="./concuerror_mem --noprogress -f testsuite/suites/dpor/src/$T.erl -t $T test $i -p inf"
     Suffix=""
 
-    Source=$($Prefix --dpor_source | grep "OUT" | sed 's/OUT//' | cut -d'&' -f1,5,8)
+    Source=$($Prefix --dpor_source | grep "OUT" | sed 's/OUT//' | cut -d'&' -f1,5,7,8)
 
     echo -n "$Source" | sed 's.\\\\.\&.'
 
-    Optimal=$($Prefix --dpor_optimal | grep "OUT" | sed 's/OUT//' | cut -d'&' -f5,8)
+    Optimal=$($Prefix --dpor_optimal | grep "OUT" | sed 's/OUT//' | cut -d'&' -f5,7,8)
 
     echo "$Optimal"
 
