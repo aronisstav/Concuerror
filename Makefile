@@ -155,7 +155,7 @@ log_target:     $(LOG_MODULES:%=$(EBIN)/%.beam)
 
 utest_target:   $(UTEST_MODULES:%=$(EBIN)/%.beam)
 
-scripts_target: concuerror
+scripts_target: concuerror concuerror_mem
 
 utest: all
 	erl -noinput -pa $(EBIN) \

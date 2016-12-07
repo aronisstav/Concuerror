@@ -32,7 +32,7 @@
 	       parallel   = 'true'  :: boolean(),
 	       comp_level = 1       :: non_neg_integer(),
 	       comp_comm  = 'true'  :: boolean(),
-	       decomp_key           :: decomp_key(),
+	       decomp_key           :: term(),%decomp_key(),
 	       precheck   = 'true'  :: boolean(),
 	       solution   = 'false' :: boolean(),
 	       workers    = 2       :: pos_integer(),
