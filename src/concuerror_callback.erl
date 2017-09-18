@@ -1245,9 +1245,8 @@ handle_receive(MessageOrAfter, PatternFun, Timeout, Location, Info) ->
     add_location_info(Location, ReceiveInfo),
   ReceiveEvent =
     #receive_event{
-       counter = Cnt,
        message = MessageOrAfter,
-       patterns = PatternFun,
+       receive_info = {Cnt, PatternFun},
        timeout = Timeout,
        trapping = Trapping},
   {Special, CreateMessage} =
