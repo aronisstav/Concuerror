@@ -1,30 +1,33 @@
-################################################################################
-
-Concuerror started with options:
+Concuerror v0.17 ('977b975') started at 19 Sep 2017 18:05:09
+ Options:
   [{after_timeout,infinity},
    {assertions_only,false},
    {assume_racing,false},
-   {depth_bound,5000},
+   {depth_bound,500},
+   {disable_sleep_sets,false},
+   {dpor,optimal},
    {entry_point,{deeper_exit,test,[]}},
+   {exclude_module,[]},
    {files,["/home/stavros/git/Concuerror/tests/suites/basic_tests/src/deeper_exit.erl"]},
    {ignore_error,[]},
    {instant_delivery,false},
    {interleaving_bound,infinity},
    {keep_going,true},
    {non_racing_system,[]},
-   {optimal,true},
    {print_depth,20},
+   {quiet,true},
    {scheduling,round_robin},
-   {scheduling_bound,infinity},
    {scheduling_bound_type,none},
    {show_races,false},
    {strict_scheduling,false},
    {symbolic_names,true},
    {timeout,infinity},
-   {treat_as_normal,[]}]
+   {treat_as_normal,[]},
+   {use_receive_patterns,true}]
 ################################################################################
-
-Erroneous interleaving 1:
+Interleaving #1
+--------------------------------------------------------------------------------
+Errors found:
 * At step 8 process P.1 exited abnormally
     Reason:
       killed
@@ -36,24 +39,24 @@ Erroneous interleaving 1:
     Stacktrace:
       []
 --------------------------------------------------------------------------------
-
-Interleaving info:
+Event trace:
    1: P: P.1 = erlang:spawn(erlang, apply, [#Fun<deeper_exit.'-test/0-fun-0-'.0>,[]])
-    in erlang.erl line 2505
+    in erlang.erl line 2673
    2: P: P.2 = erlang:spawn(erlang, apply, [#Fun<deeper_exit.'-test/0-fun-1-'.0>,[]])
-    in erlang.erl line 2505
+    in erlang.erl line 2673
    3: P: true = erlang:exit(P.1, kill)
-    in deeper_exit.erl line 12
+    in deeper_exit.erl line 14
    4: P: true = erlang:exit(P.2, kill)
-    in deeper_exit.erl line 13
+    in deeper_exit.erl line 15
    5: P: exits normally
    6: Exit signal (kill) from P reaches P.1
    7: Exit signal (kill) from P reaches P.2
    8: P.1: exits abnormally (killed)
    9: P.2: exits abnormally (killed)
 ################################################################################
-
-Erroneous interleaving 2:
+Interleaving #2
+--------------------------------------------------------------------------------
+Errors found:
 * At step 7 process P.1 exited abnormally
     Reason:
       killed
@@ -65,91 +68,59 @@ Erroneous interleaving 2:
     Stacktrace:
       []
 --------------------------------------------------------------------------------
-
-Interleaving info:
+Event trace:
    1: P: P.1 = erlang:spawn(erlang, apply, [#Fun<deeper_exit.'-test/0-fun-0-'.0>,[]])
-    in erlang.erl line 2505
+    in erlang.erl line 2673
    2: P: P.2 = erlang:spawn(erlang, apply, [#Fun<deeper_exit.'-test/0-fun-1-'.0>,[]])
-    in erlang.erl line 2505
+    in erlang.erl line 2673
    3: P: true = erlang:exit(P.1, kill)
-    in deeper_exit.erl line 12
+    in deeper_exit.erl line 14
    4: P: true = erlang:exit(P.2, kill)
-    in deeper_exit.erl line 13
+    in deeper_exit.erl line 15
    5: P: exits normally
    6: Exit signal (kill) from P reaches P.1
    7: P.1: exits abnormally (killed)
    8: P.2: P.2 = P.1 ! P.2
-    in deeper_exit.erl line 21
+    in deeper_exit.erl line 23
    9: Message (P.2) from P.2 reaches P.1
   10: Exit signal (kill) from P reaches P.2
   11: P.2: exits abnormally (killed)
 ################################################################################
-
-Erroneous interleaving 3:
-* At step 8 process P.2 exited abnormally
-    Reason:
-      killed
-    Stacktrace:
-      []
-* At step 11 process P.1 exited abnormally
-    Reason:
-      killed
-    Stacktrace:
-      []
+Interleaving #3
 --------------------------------------------------------------------------------
-
-Interleaving info:
-   1: P: P.1 = erlang:spawn(erlang, apply, [#Fun<deeper_exit.'-test/0-fun-0-'.0>,[]])
-    in erlang.erl line 2505
-   2: P: P.2 = erlang:spawn(erlang, apply, [#Fun<deeper_exit.'-test/0-fun-1-'.0>,[]])
-    in erlang.erl line 2505
-   3: P: true = erlang:exit(P.1, kill)
-    in deeper_exit.erl line 12
-   4: P: true = erlang:exit(P.2, kill)
-    in deeper_exit.erl line 13
-   5: P: exits normally
-   6: P.2: P.2 = P.1 ! P.2
-    in deeper_exit.erl line 21
-   7: Exit signal (kill) from P reaches P.2
-   8: P.2: exits abnormally (killed)
-   9: Message (P.2) from P.2 reaches P.1
-  10: Exit signal (kill) from P reaches P.1
-  11: P.1: exits abnormally (killed)
-################################################################################
-
-Erroneous interleaving 4:
+Errors found:
 * At step 8 process P.2 exited abnormally
     Reason:
       killed
     Stacktrace:
       []
 --------------------------------------------------------------------------------
-
-Interleaving info:
+Event trace:
    1: P: P.1 = erlang:spawn(erlang, apply, [#Fun<deeper_exit.'-test/0-fun-0-'.0>,[]])
-    in erlang.erl line 2505
+    in erlang.erl line 2673
    2: P: P.2 = erlang:spawn(erlang, apply, [#Fun<deeper_exit.'-test/0-fun-1-'.0>,[]])
-    in erlang.erl line 2505
+    in erlang.erl line 2673
    3: P: true = erlang:exit(P.1, kill)
-    in deeper_exit.erl line 12
+    in deeper_exit.erl line 14
    4: P: true = erlang:exit(P.2, kill)
-    in deeper_exit.erl line 13
+    in deeper_exit.erl line 15
    5: P: exits normally
    6: P.2: P.2 = P.1 ! P.2
-    in deeper_exit.erl line 21
+    in deeper_exit.erl line 23
    7: Exit signal (kill) from P reaches P.2
    8: P.2: exits abnormally (killed)
    9: Message (P.2) from P.2 reaches P.1
   10: P.1: receives message (P.2)
-    in deeper_exit.erl line 16
+    in deeper_exit.erl line 18
   11: P.1: ok = P.2 ! ok
-    in deeper_exit.erl line 17
+    in deeper_exit.erl line 19
   12: P.1: exits normally
   13: Message (ok) from P.1 reaches P.2
   14: Exit signal (kill) from P reaches P.1
 ################################################################################
-
-Erroneous interleaving 5:
+Interleaving #4
+--------------------------------------------------------------------------------
+Errors found:
 * At step 8 process P.2 exited abnormally
     Reason:
       killed
@@ -161,32 +132,32 @@ Erroneous interleaving 5:
     Stacktrace:
       []
 --------------------------------------------------------------------------------
-
-Interleaving info:
+Event trace:
    1: P: P.1 = erlang:spawn(erlang, apply, [#Fun<deeper_exit.'-test/0-fun-0-'.0>,[]])
-    in erlang.erl line 2505
+    in erlang.erl line 2673
    2: P: P.2 = erlang:spawn(erlang, apply, [#Fun<deeper_exit.'-test/0-fun-1-'.0>,[]])
-    in erlang.erl line 2505
+    in erlang.erl line 2673
    3: P: true = erlang:exit(P.1, kill)
-    in deeper_exit.erl line 12
+    in deeper_exit.erl line 14
    4: P: true = erlang:exit(P.2, kill)
-    in deeper_exit.erl line 13
+    in deeper_exit.erl line 15
    5: P: exits normally
    6: P.2: P.2 = P.1 ! P.2
-    in deeper_exit.erl line 21
+    in deeper_exit.erl line 23
    7: Exit signal (kill) from P reaches P.2
    8: P.2: exits abnormally (killed)
    9: Message (P.2) from P.2 reaches P.1
   10: P.1: receives message (P.2)
-    in deeper_exit.erl line 16
+    in deeper_exit.erl line 18
   11: P.1: ok = P.2 ! ok
-    in deeper_exit.erl line 17
+    in deeper_exit.erl line 19
   12: Message (ok) from P.1 reaches P.2
   13: Exit signal (kill) from P reaches P.1
   14: P.1: exits abnormally (killed)
 ################################################################################
-
-Erroneous interleaving 6:
+Interleaving #5
+--------------------------------------------------------------------------------
+Errors found:
 * At step 8 process P.2 exited abnormally
     Reason:
       killed
@@ -198,129 +169,97 @@ Erroneous interleaving 6:
     Stacktrace:
       []
 --------------------------------------------------------------------------------
-
-Interleaving info:
+Event trace:
    1: P: P.1 = erlang:spawn(erlang, apply, [#Fun<deeper_exit.'-test/0-fun-0-'.0>,[]])
-    in erlang.erl line 2505
+    in erlang.erl line 2673
    2: P: P.2 = erlang:spawn(erlang, apply, [#Fun<deeper_exit.'-test/0-fun-1-'.0>,[]])
-    in erlang.erl line 2505
+    in erlang.erl line 2673
    3: P: true = erlang:exit(P.1, kill)
-    in deeper_exit.erl line 12
+    in deeper_exit.erl line 14
    4: P: true = erlang:exit(P.2, kill)
-    in deeper_exit.erl line 13
+    in deeper_exit.erl line 15
    5: P: exits normally
    6: P.2: P.2 = P.1 ! P.2
-    in deeper_exit.erl line 21
+    in deeper_exit.erl line 23
    7: Exit signal (kill) from P reaches P.2
    8: P.2: exits abnormally (killed)
    9: Message (P.2) from P.2 reaches P.1
   10: P.1: receives message (P.2)
-    in deeper_exit.erl line 16
+    in deeper_exit.erl line 18
   11: Exit signal (kill) from P reaches P.1
   12: P.1: exits abnormally (killed)
 ################################################################################
-
-Erroneous interleaving 7:
+Interleaving #7
+--------------------------------------------------------------------------------
+Errors found:
 * At step 15 process P.2 exited abnormally
     Reason:
       killed
     Stacktrace:
       []
 --------------------------------------------------------------------------------
-
-Interleaving info:
+Event trace:
    1: P: P.1 = erlang:spawn(erlang, apply, [#Fun<deeper_exit.'-test/0-fun-0-'.0>,[]])
-    in erlang.erl line 2505
+    in erlang.erl line 2673
    2: P: P.2 = erlang:spawn(erlang, apply, [#Fun<deeper_exit.'-test/0-fun-1-'.0>,[]])
-    in erlang.erl line 2505
+    in erlang.erl line 2673
    3: P: true = erlang:exit(P.1, kill)
-    in deeper_exit.erl line 12
+    in deeper_exit.erl line 14
    4: P: true = erlang:exit(P.2, kill)
-    in deeper_exit.erl line 13
+    in deeper_exit.erl line 15
    5: P: exits normally
    6: P.2: P.2 = P.1 ! P.2
-    in deeper_exit.erl line 21
+    in deeper_exit.erl line 23
    7: Message (P.2) from P.2 reaches P.1
    8: P.1: receives message (P.2)
-    in deeper_exit.erl line 16
+    in deeper_exit.erl line 18
    9: P.1: ok = P.2 ! ok
-    in deeper_exit.erl line 17
+    in deeper_exit.erl line 19
   10: P.1: exits normally
   11: Exit signal (kill) from P reaches P.1
   12: Message (ok) from P.1 reaches P.2
   13: P.2: receives message (ok)
-    in deeper_exit.erl line 22
+    in deeper_exit.erl line 24
   14: Exit signal (kill) from P reaches P.2
   15: P.2: exits abnormally (killed)
 ################################################################################
-
-Erroneous interleaving 8:
-* At step 14 process P.2 exited abnormally
-    Reason:
-      killed
-    Stacktrace:
-      []
+Interleaving #8
 --------------------------------------------------------------------------------
-
-Interleaving info:
-   1: P: P.1 = erlang:spawn(erlang, apply, [#Fun<deeper_exit.'-test/0-fun-0-'.0>,[]])
-    in erlang.erl line 2505
-   2: P: P.2 = erlang:spawn(erlang, apply, [#Fun<deeper_exit.'-test/0-fun-1-'.0>,[]])
-    in erlang.erl line 2505
-   3: P: true = erlang:exit(P.1, kill)
-    in deeper_exit.erl line 12
-   4: P: true = erlang:exit(P.2, kill)
-    in deeper_exit.erl line 13
-   5: P: exits normally
-   6: P.2: P.2 = P.1 ! P.2
-    in deeper_exit.erl line 21
-   7: Message (P.2) from P.2 reaches P.1
-   8: P.1: receives message (P.2)
-    in deeper_exit.erl line 16
-   9: P.1: ok = P.2 ! ok
-    in deeper_exit.erl line 17
-  10: P.1: exits normally
-  11: Exit signal (kill) from P reaches P.1
-  12: Message (ok) from P.1 reaches P.2
-  13: Exit signal (kill) from P reaches P.2
-  14: P.2: exits abnormally (killed)
-################################################################################
-
-Erroneous interleaving 9:
+Errors found:
 * At step 11 process P.1 exited abnormally
     Reason:
       killed
     Stacktrace:
       []
 --------------------------------------------------------------------------------
-
-Interleaving info:
+Event trace:
    1: P: P.1 = erlang:spawn(erlang, apply, [#Fun<deeper_exit.'-test/0-fun-0-'.0>,[]])
-    in erlang.erl line 2505
+    in erlang.erl line 2673
    2: P: P.2 = erlang:spawn(erlang, apply, [#Fun<deeper_exit.'-test/0-fun-1-'.0>,[]])
-    in erlang.erl line 2505
+    in erlang.erl line 2673
    3: P: true = erlang:exit(P.1, kill)
-    in deeper_exit.erl line 12
+    in deeper_exit.erl line 14
    4: P: true = erlang:exit(P.2, kill)
-    in deeper_exit.erl line 13
+    in deeper_exit.erl line 15
    5: P: exits normally
    6: P.2: P.2 = P.1 ! P.2
-    in deeper_exit.erl line 21
+    in deeper_exit.erl line 23
    7: Message (P.2) from P.2 reaches P.1
    8: P.1: receives message (P.2)
-    in deeper_exit.erl line 16
+    in deeper_exit.erl line 18
    9: P.1: ok = P.2 ! ok
-    in deeper_exit.erl line 17
+    in deeper_exit.erl line 19
   10: Exit signal (kill) from P reaches P.1
   11: P.1: exits abnormally (killed)
   12: Message (ok) from P.1 reaches P.2
   13: P.2: receives message (ok)
-    in deeper_exit.erl line 22
+    in deeper_exit.erl line 24
   14: P.2: exits normally
   15: Exit signal (kill) from P reaches P.2
 ################################################################################
-
-Erroneous interleaving 10:
+Interleaving #9
+--------------------------------------------------------------------------------
+Errors found:
 * At step 11 process P.1 exited abnormally
     Reason:
       killed
@@ -332,93 +271,48 @@ Erroneous interleaving 10:
     Stacktrace:
       []
 --------------------------------------------------------------------------------
-
-Interleaving info:
+Event trace:
    1: P: P.1 = erlang:spawn(erlang, apply, [#Fun<deeper_exit.'-test/0-fun-0-'.0>,[]])
-    in erlang.erl line 2505
+    in erlang.erl line 2673
    2: P: P.2 = erlang:spawn(erlang, apply, [#Fun<deeper_exit.'-test/0-fun-1-'.0>,[]])
-    in erlang.erl line 2505
+    in erlang.erl line 2673
    3: P: true = erlang:exit(P.1, kill)
-    in deeper_exit.erl line 12
+    in deeper_exit.erl line 14
    4: P: true = erlang:exit(P.2, kill)
-    in deeper_exit.erl line 13
+    in deeper_exit.erl line 15
    5: P: exits normally
    6: P.2: P.2 = P.1 ! P.2
-    in deeper_exit.erl line 21
+    in deeper_exit.erl line 23
    7: Message (P.2) from P.2 reaches P.1
    8: P.1: receives message (P.2)
-    in deeper_exit.erl line 16
+    in deeper_exit.erl line 18
    9: P.1: ok = P.2 ! ok
-    in deeper_exit.erl line 17
+    in deeper_exit.erl line 19
   10: Exit signal (kill) from P reaches P.1
   11: P.1: exits abnormally (killed)
   12: Message (ok) from P.1 reaches P.2
   13: P.2: receives message (ok)
-    in deeper_exit.erl line 22
+    in deeper_exit.erl line 24
   14: Exit signal (kill) from P reaches P.2
   15: P.2: exits abnormally (killed)
 ################################################################################
-
-Erroneous interleaving 11:
-* At step 11 process P.1 exited abnormally
-    Reason:
-      killed
-    Stacktrace:
-      []
-* At step 14 process P.2 exited abnormally
-    Reason:
-      killed
-    Stacktrace:
-      []
---------------------------------------------------------------------------------
-
-Interleaving info:
-   1: P: P.1 = erlang:spawn(erlang, apply, [#Fun<deeper_exit.'-test/0-fun-0-'.0>,[]])
-    in erlang.erl line 2505
-   2: P: P.2 = erlang:spawn(erlang, apply, [#Fun<deeper_exit.'-test/0-fun-1-'.0>,[]])
-    in erlang.erl line 2505
-   3: P: true = erlang:exit(P.1, kill)
-    in deeper_exit.erl line 12
-   4: P: true = erlang:exit(P.2, kill)
-    in deeper_exit.erl line 13
-   5: P: exits normally
-   6: P.2: P.2 = P.1 ! P.2
-    in deeper_exit.erl line 21
-   7: Message (P.2) from P.2 reaches P.1
-   8: P.1: receives message (P.2)
-    in deeper_exit.erl line 16
-   9: P.1: ok = P.2 ! ok
-    in deeper_exit.erl line 17
-  10: Exit signal (kill) from P reaches P.1
-  11: P.1: exits abnormally (killed)
-  12: Message (ok) from P.1 reaches P.2
-  13: Exit signal (kill) from P reaches P.2
-  14: P.2: exits abnormally (killed)
+Exploration completed!
 ################################################################################
-
-Warnings:
---------------------------------------------------------------------------------
-
-Continuing after error
-
-################################################################################
-
 Tips:
 --------------------------------------------------------------------------------
-
 An abnormal exit signal was sent to a process. This is probably the worst thing that can happen race-wise, as any other side-effecting operation races with the arrival of the signal. If the test produces too many interleavings consider refactoring your code.
+Increase '--print_depth' if output/graph contains "...".
 
 ################################################################################
-
 Info:
 --------------------------------------------------------------------------------
-
-Instrumented deeper_exit
-Instrumented io_lib
-Instrumented erlang
-You can see pairs of racing instructions (in the report and --graph) with '--show_races true'
+Instrumented & loaded module deeper_exit
+Automatically instrumented module io_lib
+Automatically instrumented module gen_server
+Automatically instrumented module erlang
+You can see pairs of racing instructions (in the report and '--graph') with '--show_races true'
+Continuing after error (-k)
 
 ################################################################################
-
-Done! (Exit status: completed)
-  Summary: 11 errors, 12/12 interleavings explored
+Done at 19 Sep 2017 18:05:10 (Exit status: error)
+  Summary: 8 errors, 9/9 interleavings explored
