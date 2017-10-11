@@ -1930,11 +1930,11 @@ system_ets_entries(#concuerror_info{ets_tables = EtsTables}) ->
         [Owner, Protection] = [ets:info(Tid, F) || F <- [owner, protection]],
         ?ets_table_entry_system(Tid, Name, Protection, Owner)
     end,
-  SystemEtsEntries = [Map(Name) || Name <- ets:all(), is_atom(Name)],
+  SystemEtsEntries = [Map(Name) || Name <- [concuerror_instrumented]],%ets:all(), is_atom(Name)],
   ets:insert(EtsTables, SystemEtsEntries).
 
 system_processes_wrappers(Info) ->
-  [wrap_system(Name, Info) || Name <- registered()],
+  [wrap_system(Name, Info) || Name <- [standard_error, user]],
   ok.
 
 wrap_system(Name, Info) ->
