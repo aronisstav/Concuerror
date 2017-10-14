@@ -50,7 +50,8 @@ timediff(After, Before) ->
 
 -type timestamp() :: integer().
 timestamp() ->
-  erlang:monotonic_time(milli_seconds).
+  42.
+  %erlang:monotonic_time(milli_seconds).
 timediff(After, Before) ->
   (After - Before) / 1000.
 
@@ -483,14 +484,15 @@ loop(Message, State) ->
   end.
 
 format_utc_timestamp() ->
-  TS = os:timestamp(),
-  {{Year, Month, Day}, {Hour, Minute, Second}} =
-    calendar:now_to_local_time(TS),
-  Mstr =
-    element(Month, {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug",
-                    "Sep", "Oct", "Nov", "Dec"}),
-  io_lib:format("~2..0w ~s ~4w ~2..0w:~2..0w:~2..0w",
-                [Day, Mstr, Year, Hour, Minute, Second]).
+  "".
+  %% TS = os:timestamp(),
+  %% {{Year, Month, Day}, {Hour, Minute, Second}} =
+  %%   calendar:now_to_local_time(TS),
+  %% Mstr =
+  %%   element(Month, {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug",
+  %%                   "Sep", "Oct", "Nov", "Dec"}),
+  %% io_lib:format("~2..0w ~s ~4w ~2..0w:~2..0w:~2..0w",
+  %%               [Day, Mstr, Year, Hour, Minute, Second]).
 
 printout(#logger_state{ticker = Ticker} = State, Format, Data)
   when Ticker =/= none ->
