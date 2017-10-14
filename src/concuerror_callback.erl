@@ -1207,8 +1207,17 @@ wait_process(Pid, Timeout) ->
         {true, _Module} ->
           wait_process(Pid, Timeout);
         _ ->
+          maybe_pause(Pid),
           ?crash({process_did_not_respond, Timeout, Pid})
       end
+  end.
+
+maybe_pause(Pid) ->
+  Pause = os:getenv("PAUSE"),
+  if Pause =/= false ->
+      io:format("~n~n~p~n~n~p~n~n",[Pid, self()]),
+      receive after infinity -> ok end;
+     true -> ok
   end.
 
 %%------------------------------------------------------------------------------
@@ -1251,7 +1260,9 @@ enabled(P) ->
   receive
     {enabled, Answer} -> Answer
   after
-    5000 -> ?crash({process_did_not_respond_system, P})
+    1000 ->
+      maybe_pause(P),
+      ?crash({process_did_not_respond_system, P})
   end.
 
 %%------------------------------------------------------------------------------
