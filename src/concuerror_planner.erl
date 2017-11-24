@@ -115,12 +115,12 @@
           interleaving_bound           :: concuerror_options:bound(),
           keep_going                   :: boolean(),
           logger                       :: pid(),
-	  planner                      :: pid(),  %%par_added
           last_scheduled               :: pid(),
           need_to_replay       = false :: boolean(),
           non_racing_system            :: [atom()],
           origin               = 1     :: integer(),
           parallel                     :: boolean(),
+	  planner                      :: pid(),
           print_depth                  :: pos_integer(),
           processes                    :: processes(),
           receive_timeout_total = 0    :: non_neg_integer(),
@@ -152,9 +152,8 @@
 -spec run(concuerror_options:options()) -> ok.
 
 run(Options) ->
-  SchedulerOptions = [{planner, self()}|Options],
-  Logger = ?opt(logger, Options),
   process_flag(trap_exit, true),
+  SchedulerOptions = [{planner, self()}|Options],
   Scheduler = 
     spawn_link(concuerror_scheduler, run, [SchedulerOptions]),
   receive 
@@ -162,7 +161,7 @@ run(Options) ->
       InitialStatus = 
         #planner_status{
            scheduler = Scheduler, 
-           logger = Logger, 
+           logger = ?opt(logger, Options),
            scheduler_state = InitialState
           },
       loop(InitialStatus);
