@@ -145,7 +145,9 @@
 	  scheduler_state :: scheduler_state()
 	 }).
 
-
+%% =============================================================================
+%% LOGIC (high level description of the exploration algorithm)
+%% =============================================================================
 
 -spec run(concuerror_options:options()) -> ok.
 
@@ -173,6 +175,7 @@ run(Options) ->
 	    end
     end.
 
+%%------------------------------------------------------------------------------
 
 loop(Status) ->
     #planner_status{scheduler = Scheduler, logger = _Logger} = Status,
@@ -215,39 +218,6 @@ loop(Status) ->
 	    %% will need to also cleanup the rest of 
 	    %%the schedulers when there are going to be more than one
     end.
-
-
-%%------------------------------------------------------------------------------
-%% THE NEXT 3 FUNCTIONS ARE REPLICATED FROM CONCUERROR_SCHEDULER
-%%------------------------------------------------------------------------------ 
-
-
-next_bound(SchedulingBoundType, Done, PreviousActor, Bound) ->
-  case SchedulingBoundType of
-    none -> Bound;
-    bpor ->
-      NonPreemptExplored =
-        [E || #event{actor = PA} = E <- Done, PA =:= PreviousActor] =/= [],
-      case NonPreemptExplored of
-        true -> Bound - 1;
-        false -> Bound
-      end;
-    delay ->
-      %% Every reschedule costs.
-      Bound - length(Done)
-  end.
-
-patch_message_delivery({message_delivered, MessageEvent}, ReceiveInfoDict) ->
-  #message_event{message = #message{id = Id}} = MessageEvent,
-  ReceiveInfo =
-    case dict:find(Id, ReceiveInfoDict) of
-      {ok, RI} -> RI;
-      error -> not_received
-    end,
-  {message_delivered, MessageEvent#message_event{receive_info = ReceiveInfo}};
-patch_message_delivery(Other, _ReceiveInfoDict) ->
-  Other.
-
 
 
 %%------------------------------------------------------------------------------
@@ -991,6 +961,17 @@ store_receive_info(EventInfo, Special, ReceiveInfoDict) ->
       lists:foldl(Fold, ReceiveInfoDict, IDs)
   end.
 
+patch_message_delivery({message_delivered, MessageEvent}, ReceiveInfoDict) ->
+  #message_event{message = #message{id = Id}} = MessageEvent,
+  ReceiveInfo =
+    case dict:find(Id, ReceiveInfoDict) of
+      {ok, RI} -> RI;
+      error -> not_received
+    end,
+  {message_delivered, MessageEvent#message_event{receive_info = ReceiveInfo}};
+patch_message_delivery(Other, _ReceiveInfoDict) ->
+  Other.
+
 %%%----------------------------------------------------------------------
 %%% Helper functions
 %%%----------------------------------------------------------------------
@@ -1011,5 +992,18 @@ max_cv(D1, D2) ->
   Merger = fun(_Key, V1, V2) -> max(V1, V2) end,
   orddict:merge(Merger, D1, D2).
 
-    
+next_bound(SchedulingBoundType, Done, PreviousActor, Bound) ->
+  case SchedulingBoundType of
+    none -> Bound;
+    bpor ->
+      NonPreemptExplored =
+        [E || #event{actor = PA} = E <- Done, PA =:= PreviousActor] =/= [],
+      case NonPreemptExplored of
+        true -> Bound - 1;
+        false -> Bound
+      end;
+    delay ->
+      %% Every reschedule costs.
+      Bound - length(Done)
+  end.
 
