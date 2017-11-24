@@ -2,6 +2,8 @@
 
 %%% @doc Concuerror's scheduler component
 %%%
+%%% NOTE: TEXT BELOW IS UNREVISED AFTER SCHEDULER/PLANNER SPLIT
+%%%
 %%% concuerror_scheduler is the main driver of interleaving
 %%% exploration.  A rough trace through it is the following:
 
@@ -113,12 +115,12 @@
           interleaving_bound           :: concuerror_options:bound(),
           keep_going                   :: boolean(),
           logger                       :: pid(),
-	  planner                      :: pid(),  %%par_added
           last_scheduled               :: pid(),
           need_to_replay       = false :: boolean(),
           non_racing_system            :: [atom()],
           origin               = 1     :: integer(),
           parallel                     :: boolean(),
+	  planner                      :: pid(),
           print_depth                  :: pos_integer(),
           processes                    :: processes(),
           receive_timeout_total = 0    :: non_neg_integer(),
@@ -179,9 +181,9 @@ run(Options) ->
        keep_going = ?opt(keep_going, Options),
        last_scheduled = FirstProcess,
        logger = Logger,
-       planner = Planner,
        non_racing_system = ?opt(non_racing_system, Options),
        parallel = ?opt(parallel, Options),
+       planner = Planner,
        print_depth = ?opt(print_depth, Options),
        processes = Processes = ?opt(processes, Options),
        scheduling = ?opt(scheduling, Options),
@@ -923,8 +925,8 @@ explain_error({replay_mismatch, I, Event, NewEvent, Depth}) ->
        )-> [1..255,...].
 
 msg(after_timeout_tip) ->
-  "You can use e.g. '--after_timeout 2000' to treat after"
-    " clauses that exceed some threshold (here 2000ms) as 'impossible'.~n";
+  "You can use e.g. '--after_timeout 5000' to treat after timeouts that exceed"
+    " some threshold (here 4999ms) as 'infinity'.~n";
 msg(assertions_only_filter) ->
   "Only assertion failures are considered crashes ('--assertions_only').~n";
 msg(assertions_only_use) ->
@@ -961,9 +963,7 @@ msg(stop_first_error) ->
 msg(timeout) ->
   "A process crashed with reason '{timeout, ...}'. This may happen when a"
     " call to a gen_server (or similar) does not receive a reply within some"
-    " standard timeout. "
+    " timeout (5000ms by default). "
     ++ msg(after_timeout_tip);
 msg(treat_as_normal) ->
   "Some abnormal exit reasons were treated as normal ('--treat_as_normal').~n".
-
-
