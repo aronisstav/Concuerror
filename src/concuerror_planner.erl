@@ -152,73 +152,72 @@
 -spec run(concuerror_options:options()) -> ok.
 
 run(Options) ->
-    SchedulerOptions = [{planner, self()}|Options],
-    Logger = ?opt(logger, Options),
-    process_flag(trap_exit, true),
-    Scheduler = 
-        spawn_link(concuerror_scheduler, run, [SchedulerOptions]),
-    receive 
-	{initial, InitialState} -> 
-	    InitialStatus = 
-		#planner_status{
-		   scheduler = Scheduler, 
-		   logger = Logger, 
-		   scheduler_state = InitialState
-		  },
-	    loop(InitialStatus);
-	{'EXIT', Scheduler, Reason} ->%% will need to fix that to work with many schedulers 
-	    case Reason of
-		normal ->
-		    ok;
-		_Else ->
-		    exit(Reason)
-	    end
-    end.
+  SchedulerOptions = [{planner, self()}|Options],
+  Logger = ?opt(logger, Options),
+  process_flag(trap_exit, true),
+  Scheduler = 
+    spawn_link(concuerror_scheduler, run, [SchedulerOptions]),
+  receive 
+    {initial, InitialState} -> 
+      InitialStatus = 
+        #planner_status{
+           scheduler = Scheduler, 
+           logger = Logger, 
+           scheduler_state = InitialState
+          },
+      loop(InitialStatus);
+    {'EXIT', Scheduler, Reason} ->%% will need to fix that to work with many schedulers 
+      case Reason of
+        normal ->
+          ok;
+        _Else ->
+          exit(Reason)
+      end
+  end.
 
 %%------------------------------------------------------------------------------
 
 loop(Status) ->
-    #planner_status{scheduler = Scheduler, logger = _Logger} = Status,
-    receive
-	{crash, Class, Reason, Stack} ->
-	    Scheduler ! exit,
-	    erlang:raise(Class, Reason, Stack);
-	{explored, {Trace, Warnings, Exploring, BoundExceeded}}  ->
-	    put(bound_exceeded, BoundExceeded),
-	    #planner_status{scheduler_state = PreviousState} = Status,
-	    State = 
-		PreviousState#scheduler_state{
-		  trace = Trace,
-		  warnings = Warnings, 
-		  exploring = Exploring
-		 },
-	    RacesDetectedState = plan_more_interleavings(State),
-	    LogState = concuerror_scheduler:log_trace(RacesDetectedState),
-	    {HasMore, NewState} = has_more_to_explore(LogState),
-	    case HasMore of
-		true -> 
-		    #scheduler_state{
-		       trace = NewTrace, 
-		       warnings = NewWarnings, 
-		       exploring = NewExploring
-		      } = NewState,
-		    Scheduler ! {explore, {NewTrace, NewWarnings, NewExploring, get(bound_exceeded)}},
-		    loop(Status#planner_status{scheduler_state = NewState});
-		false ->
-		    Scheduler ! exit,
-		    ok
-	    end;
-	{'EXIT', Scheduler, Reason} ->%% will need to fix that to work with many schedulers
-	    case Reason of
-		normal ->
-		    ok;
-		_Else ->
-		    exit(Reason)
-	    end
-	    %% will need to also cleanup the rest of 
-	    %%the schedulers when there are going to be more than one
-    end.
-
+  #planner_status{scheduler = Scheduler, logger = _Logger} = Status,
+  receive
+    {crash, Class, Reason, Stack} ->
+      Scheduler ! exit,
+      erlang:raise(Class, Reason, Stack);
+    {explored, {Trace, Warnings, Exploring, BoundExceeded}}  ->
+      put(bound_exceeded, BoundExceeded),
+      #planner_status{scheduler_state = PreviousState} = Status,
+      State = 
+        PreviousState#scheduler_state{
+          trace = Trace,
+          warnings = Warnings, 
+          exploring = Exploring
+         },
+      RacesDetectedState = plan_more_interleavings(State),
+      LogState = concuerror_scheduler:log_trace(RacesDetectedState),
+      {HasMore, NewState} = has_more_to_explore(LogState),
+      case HasMore of
+        true -> 
+          #scheduler_state{
+             trace = NewTrace, 
+             warnings = NewWarnings, 
+             exploring = NewExploring
+            } = NewState,
+          Scheduler ! {explore, {NewTrace, NewWarnings, NewExploring, get(bound_exceeded)}},
+          loop(Status#planner_status{scheduler_state = NewState});
+        false ->
+          Scheduler ! exit,
+          ok
+      end;
+    {'EXIT', Scheduler, Reason} ->%% will need to fix that to work with many schedulers
+      case Reason of
+        normal ->
+          ok;
+        _Else ->
+          exit(Reason)
+      end
+      %% will need to also cleanup the rest of 
+      %%the schedulers when there are going to be more than one
+  end.
 
 %%------------------------------------------------------------------------------
 
