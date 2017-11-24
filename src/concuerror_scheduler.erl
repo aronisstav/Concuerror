@@ -42,7 +42,7 @@
 -module(concuerror_scheduler).
 
 %% User interface
--export([run/1, log_trace/1, explain_error/1, msg/1]).
+-export([run/1, log_trace/1, explain_error/1]).
 
 %%------------------------------------------------------------------------------
 
@@ -918,11 +918,6 @@ explain_error({replay_mismatch, I, Event, NewEvent, Depth}) ->
    ).
 
 %%==============================================================================
--spec msg(
-	'after_timeout_tip' | 'assertions_only_filter' | 'assertions_only_use' |
-	'depth_bound' | 'maybe_receive_loop' | 'show_races' | 'shutdown' | 'signal' |
-	'sleep_set_block' | 'stop_first_error' | 'timeout' | 'treat_as_normal'
-       )-> [1..255,...].
 
 msg(after_timeout_tip) ->
   "You can use e.g. '--after_timeout 5000' to treat after timeouts that exceed"

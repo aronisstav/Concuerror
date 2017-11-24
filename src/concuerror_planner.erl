@@ -688,7 +688,7 @@ maybe_log_race(TraceState, Index, Event, State) ->
       IndexedLate = {Index, Event#event{location = []}},
       concuerror_logger:race(Logger, IndexedEarly, IndexedLate);
      true ->
-      ?unique(Logger, ?linfo, concuerror_scheduler:msg(show_races), [])
+      ?unique(Logger, ?linfo, msg(show_races), [])
   end.
 
 insert_wakeup_non_optimal(Sleeping, Wakeup, Initials, Conservative, Exploring) ->
@@ -1005,3 +1005,8 @@ next_bound(SchedulingBoundType, Done, PreviousActor, Bound) ->
       Bound - length(Done)
   end.
 
+%%==============================================================================
+
+msg(show_races) ->
+  "You can see pairs of racing instructions (in the report and"
+    " '--graph') with '--show_races true'~n".
