@@ -1894,7 +1894,21 @@ system_wrapper_loop(Name, Wrapped, Info) ->
                   ?unique(Logger, ?ltip, Msg, []),
                   {From, Reply};
                 Else ->
-                  throw({unknown_protocol_for_system, {Else, Data}})
+                  case lists:suffix("_meck", atom_to_list(Name)) of
+                    true ->
+                      case Data of
+                        {Call, {From, Ref}, Request} ->
+                          erlang:send(Wrapped, {Call, {self(), Ref}, Request}),
+                          receive
+                            Msg -> {From, Msg}
+                          end;
+                        _ ->
+                          erlang:send(Wrapped, Data),
+                          throw(no_reply)
+                      end;
+                    false ->
+                      throw({unknown_protocol_for_system, {Else, Data}})
+                  end
               end,
             Report ! {system_reply, F, Id, R, Name},
             ok
