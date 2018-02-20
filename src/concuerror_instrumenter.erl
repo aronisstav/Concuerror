@@ -13,7 +13,7 @@
 
 -define(ACTIVE_FLAGS, [?input, ?output]).
 
-%% -define(DEBUG_FLAGS, lists:foldl(fun erlang:'bor'/2, 0, ?ACTIVE_FLAGS)).
+-define(DEBUG_FLAGS, lists:foldl(fun erlang:'bor'/2, 0, ?ACTIVE_FLAGS)).
 -include("concuerror.hrl").
 
 -spec instrument(module(), cerl:cerl(), concuerror_loader:instrumented())
@@ -40,12 +40,9 @@ mapfold(Tree, {Instrumented, Var}) ->
     case Type of
       apply ->
         Op = cerl:apply_op(Tree),
-        case cerl:is_c_fname(Op) of
-          true -> Tree;
-          false ->
-            OldArgs = cerl:make_list(cerl:apply_args(Tree)),
-            inspect(apply, [Op, OldArgs], Tree)
-        end;
+        OpArgs = cerl:make_list(cerl:apply_args(Tree)),
+        erlang:display({Op, OpArgs}),
+        inspect(apply, [Op, OpArgs], Tree);
       call ->
         Module = cerl:call_module(Tree),
         Name = cerl:call_name(Tree),
@@ -120,8 +117,8 @@ is_safe(Module, Name, Arity, Instrumented) ->
     true ->
       NameLit = cerl:concrete(Name),
       ModuleLit = cerl:concrete(Module),
-      %% erlang:apply/3 is safe only when called inside of erlang.erl
-      case {ModuleLit, NameLit, Arity} =:= {erlang, apply, 3} of
+      %% erlang:apply/X is safe only when called inside of erlang.erl
+      case {ModuleLit, NameLit} =:= {erlang, apply} of
         true ->
           ets:lookup_element(Instrumented, {current}, 2) =:= erlang;
         false ->
@@ -129,7 +126,7 @@ is_safe(Module, Name, Arity, Instrumented) ->
             true ->
               not is_unsafe({ModuleLit, NameLit, Arity});
             false ->
-              ets:lookup(Instrumented, ModuleLit) =/= []
+              false
           end
       end
   end.
@@ -141,7 +138,7 @@ is_safe(Module, Name, Arity, Instrumented) ->
 is_unsafe({erlang, exit, 2}) ->
   true;
 is_unsafe({erlang, pid_to_list, 1}) ->
-  true; %% Must be instrumented for pretty printing.
+  true; %% Instrumented for symbolic PIDs pretty printing.
 is_unsafe({erlang, F, A}) ->
   case
     (erl_internal:guard_bif(F, A)

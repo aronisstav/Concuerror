@@ -130,13 +130,9 @@ options() ->
   ,{pz, [input], undefined, string,
     "Add directories to Erlang's code path (rear)",
     "Works exactly like 'erl -pz'."}
-  ,{exclude_module, [input, experimental, advanced], $x, atom,
-    "* Do not instrument the specified modules",
-    "Experimental. Concuerror needs to instrument all code in a test to be able"
-    " to reset the state after each exploration. You can use this option to"
-    " exclude a module from instrumentation, but you must ensure that any state"
-    " is reset correctly, or Concuerror will complain that operations have"
-    " unexpected results."}
+  ,{mock, [input, experimental, advanced], undefined, atom,
+    "* Custom mocking ('-h mock' for usage)",
+    "TODO."}
   ,{depth_bound, [bound], $d, {integer, 500},
     "Maximum number of events",
     "The maximum number of events allowed in an interleaving. Concuerror will"
@@ -267,15 +263,13 @@ synonyms() ->
   [{observers, use_receive_patterns}].
 
 multiple_allowed() ->
-  [ exclude_module
-  , ignore_error
+  [ ignore_error
   , non_racing_system
   , treat_as_normal
   ].
 
 ignored_in_module_attributes() ->
-  [ exclude_module
-  , file
+  [ file
   , help
   , module
   , pa
@@ -564,8 +558,6 @@ finalize_2(Options) ->
     , fun open_files/1
     , fun add_to_path/1
     , fun add_missing_file/1
-      %% We need group multiples to find excluded files before loading
-    , fun group_multiples/1
     , fun initialize_loader/1
     , fun load_files/1
     , fun ensure_module/1
@@ -985,6 +977,18 @@ process_options(Options) ->
 process_options([], Acc) -> lists:reverse(Acc);
 process_options([{Key, Value} = Option|Rest], Acc) ->
   case Key of
+    mock ->
+      Module = proplists:get_value(module, Acc),
+      try
+        Mocks = Module:Value(),
+        process_options(Rest, [{mock, Mocks}|Acc])
+      catch
+        _:_ ->
+          InvalidMock =
+            "The mock specification ~w:~w/~w is invalid. Make sure you have"
+            " specified and exported the correct mock function ('--mock').",
+          opt_error(InvalidMock, [Module,Value,0], mock)
+      end;
     optimal ->
       "0.1" ++ [_|_] = ?VSN,
       Msg =

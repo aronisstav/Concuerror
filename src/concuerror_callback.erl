@@ -88,6 +88,7 @@
           message_counter = 1         :: pos_integer(),
           messages_new = queue:new()  :: message_queue(),
           messages_old = queue:new()  :: message_queue(),
+          mock                        :: concuerror_mock:mock_spec(),
           monitors                    :: monitors(),
           event = none                :: 'none' | event(),
           notify_when_ready           :: {pid(), boolean()},
@@ -118,6 +119,7 @@ spawn_first_process(Options) ->
        instant_delivery = ?opt(instant_delivery, Options),
        links          = ets:new(links, [bag, public]),
        logger         = ?opt(logger, Options),
+       mock           = ?opt(mock, Options),
        monitors       = ets:new(monitors, [bag, public]),
        notify_when_ready = {self(), true},
        processes      = Processes = ?opt(processes, Options),
@@ -169,11 +171,13 @@ instrumented(apply, [Fun, Args], Location, Info) ->
       Module = get_fun_info(Fun, module),
       Name = get_fun_info(Fun, name),
       Arity = get_fun_info(Fun, arity),
+      erlang:display({applyn, [Module, Name, Arity]}),
       case length(Args) =:= Arity of
         true -> instrumented_aux(Module, Name, Arity, Args, Location, Info);
         false -> {doit, Info}
       end;
     false ->
+      %% ... MORE MOCKING?
       {doit, Info}
   end;
 instrumented('receive', [PatternFun, RealTimeout], Location, Info) ->
@@ -216,24 +220,37 @@ instrumented_aux(erlang, apply, 3, [Module, Name, Args], Location, Info) ->
   instrumented_aux(Module, Name, length(Args), Args, Location, Info);
 instrumented_aux(Module, Name, Arity, Args, Location, Info)
   when is_atom(Module) ->
-  case
-    erlang:is_builtin(Module, Name, Arity) andalso
-    concuerror_instrumenter:is_unsafe({Module, Name, Arity})
-  of
-    true ->
-      built_in(Module, Name, Arity, Args, Location, Info);
+  MockInfo =
+    case Info of
+      #concuerror_info{} -> Info#concuerror_info.mock;
+      _ -> []
+    end,
+  case concuerror_mock:has_mock(Module, Name, Arity, MockInfo) of
+    {true, {M,F,Arity}} ->
+      {{retry, [M,F,Args]}, Info};
+    {true, _} ->
+      ?crash(bad_mock);
     false ->
-      case Info of
-        #concuerror_info{logger = Logger} ->
-          ?debug_flag(?non_builtin,{Module,Name,Arity,Location}),
-          ?autoload_and_log(Module, Logger);
-        _ -> ok
-      end,
-      {doit, Info}
+      case
+        erlang:is_builtin(Module, Name, Arity) andalso
+        concuerror_instrumenter:is_unsafe({Module, Name, Arity})
+      of
+        true ->
+          built_in(Module, Name, Arity, Args, Location, Info);
+        false ->
+          case Info of
+            #concuerror_info{logger = Logger} ->
+              ?debug_flag(?non_builtin,{Module,Name,Arity,Location}),
+              ?autoload_and_log(Module, Logger);
+            _ -> ok
+          end,
+          {doit, Info}
+      end
   end;
 instrumented_aux({Module, _} = Tuple, Name, Arity, Args, Location, Info) ->
   instrumented_aux(Module, Name, Arity + 1, Args ++ Tuple, Location, Info);
 instrumented_aux(_, _, _, _, _, Info) ->
+  erlang:display({nope}),
   {doit, Info}.
 
 get_fun_info(Fun, Tag) ->

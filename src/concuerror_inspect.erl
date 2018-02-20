@@ -57,6 +57,8 @@ inspect(Tag, Args, Location) ->
       end;
     {didit, Res} -> Res;
     {error, Reason} -> error(Reason);
+    {retry, NewArgs} when Args =/= NewArgs ->
+      inspect(Tag, NewArgs, Location);
     {skip_timeout, CreateMessage} ->
       assert_no_messages(),
       case CreateMessage of
