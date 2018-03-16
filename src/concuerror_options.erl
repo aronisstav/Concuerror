@@ -14,6 +14,16 @@
 
 %%%-----------------------------------------------------------------------------
 
+-ifdef(DEV).
+-ifdef(NATIVE).
+-define(VSN, ?VSN_BASE ++ ?DEV ++ ?NATIVE).
+-else.
+-define(VSN, ?VSN_BASE ++ ?DEV).
+-endif.
+-else.
+-define(VSN, ?VSN_BASE).
+-endif.
+
 -include("concuerror.hrl").
 
 -ifdef(BEFORE_OTP_20).

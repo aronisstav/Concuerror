@@ -142,7 +142,7 @@ def runScenario(suite, name, modn, funn, preb, flags, files):
         except:
             pass
         print "%s  \033[01;32m    ok\033[00m" % (logline)
-              
+
     else:
         total_failed.value += 1
         print "%s  \033[01;31mfailed\033[00m" % (logline)
@@ -164,11 +164,15 @@ def equalResults(suite, name, orig, rslt):
 
 # Get the directory of Concuerror's testsuite
 dirname = os.path.abspath(os.path.dirname(sys.argv[0]))
-concuerror = os.path.abspath(dirname + "/../bin/concuerror")
+concuerror = os.path.abspath(dirname + "/../concuerror")
 results = os.path.abspath(dirname + "/results")
 
+# Ensure in right directory
+assert 0 == os.system("[ ${PWD%%/tests} != $PWD ]")
 # Ensure made
-assert 0 == os.system("make -j -C %s/.. default tests/scenarios.beam" % dirname)
+assert 0 == os.system("erlc scenarios.erl")
+# Ensure bin reachable
+assert 0 == os.system("[ -x '%s' ]" % concuerror)
 
 # If we have arguments we should use them as tests,
 # otherwise check them all

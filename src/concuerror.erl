@@ -3,7 +3,7 @@
 -module(concuerror).
 
 %% Main entry point.
--export([run/1]).
+-export([run/1, main/1]).
 
 %%------------------------------------------------------------------------------
 
@@ -19,6 +19,22 @@
 -include("concuerror.hrl").
 
 %%------------------------------------------------------------------------------
+
+-spec main(list(string())) -> no_return().
+main(Args) ->
+  ScriptDir = filename:dirname(read_link(escript:script_name())),
+  EbinDir = filename:join([ScriptDir,"..","ebin"]),
+  GetoptDir = filename:join([ScriptDir,"..","deps","getopt","ebin"]),
+  ok = code:add_pathsa([EbinDir, GetoptDir]),
+  concuerror:maybe_cover_compile(),
+  Status =
+    case concuerror_options:parse_cl(Args) of
+      {ok, Options} -> concuerror:run(Options);
+      {exit, ExitStatus} ->
+        concuerror:maybe_cover_export(Args),
+        ExitStatus
+    end,
+  cl_exit(Status).
 
 -spec run(concuerror_options:options()) -> exit_status().
 
@@ -99,3 +115,19 @@ explain(Reason) ->
     _:_ ->
       io_lib:format("~n  Reason: ~p", [Reason])
   end.
+
+-spec read_link(file:filename()) -> file:filename().
+read_link(Filename) ->
+  case file:read_link_all(Filename) of
+    {ok, Follow} -> read_link(Follow);
+    _Other -> Filename
+  end.
+
+-spec cl_exit(concuerror:exit_status()) -> no_return().
+
+cl_exit(ok) ->
+  erlang:halt(0);
+cl_exit(error) ->
+  erlang:halt(1);
+cl_exit(fail) ->
+  erlang:halt(2).

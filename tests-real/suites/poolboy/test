@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 Out=concuerror_report.txt
 CONCUERROR=${CONCUERROR:-$(which concuerror)}
@@ -42,7 +42,7 @@ good
 cd poolboy
 
 testing "Running Concuerror"
-! $CONCUERROR -q -f poolboy_tests_1.erl -m poolboy_tests_1 -t pool_startup
+! $CONCUERROR -q -f poolboy_tests_1.erl -m poolboy_tests_1 -t pool_startup --pa .eunit
 good
 
 testing "Output filename is correct"
