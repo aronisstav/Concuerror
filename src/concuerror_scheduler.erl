@@ -236,7 +236,10 @@ explore_scheduling(State) ->
   RacesDetectedState = plan_more_interleavings(LogState),
   {HasMore, NewState} = has_more_to_explore(RacesDetectedState),
   case HasMore of
-    true -> explore_scheduling(NewState);
+    true ->
+      maybe_prof(stop, 6, NewState),
+      maybe_prof([start], 0, NewState),
+      explore_scheduling(NewState);
     false -> ok
   end.
 
@@ -257,6 +260,16 @@ explore(State) ->
         add_error(fatal, discard_last_trace_state(UpdatedState)),
       catch log_trace(FatalCrashState),
       erlang:raise(Class, Reason, Stack)
+  end.
+
+maybe_prof(What, Offs, State) ->
+  ProfEnv = os:getenv("PROF"),
+  case ProfEnv =/= false andalso
+    integer_to_list(State#scheduler_state.interleaving_id + Offs) =:= ProfEnv
+  of
+    true ->
+      fprof:trace(What);
+    false -> ok
   end.
 
 %%------------------------------------------------------------------------------
