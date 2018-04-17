@@ -25,9 +25,14 @@
 run(RawOptions) ->
   maybe_cover_compile(),
   Status =
-    case concuerror_options:finalize(RawOptions) of
-      {ok, Options, LogMsgs} -> start(Options, LogMsgs);
-      {exit, ExitStatus} -> ExitStatus
+    case ?opt(parallel, RawOptions) of
+      true ->
+	start_parallel(RawOptions);
+      _ ->
+	case concuerror_options:finalize(RawOptions) of
+	  {ok, Options, LogMsgs} -> start(Options, LogMsgs);
+	  {exit, ExitStatus} -> ExitStatus
+	end
     end,
   maybe_cover_export(RawOptions),
   Status.
@@ -57,6 +62,29 @@ start(Options, LogMsgs) ->
   concuerror_estimator:finish(Estimator),
   ets:delete(Processes),
   ExitStatus.
+
+%%------------------------------------------------------------------------------
+
+start_parallel(RawOptions) ->
+  Nodes = concuerror_nodes:start(RawOptions),
+  [Node|_Rest] = Nodes,
+  process_flag(trap_exit, true),
+  StartAux =
+    fun() ->
+	Status =
+	  case concuerror_options:finalize(RawOptions) of
+	    {ok, Options, LogMsgs} -> start(Options, LogMsgs);
+	    {exit, ExitStatus} -> ExitStatus
+	  end,
+	  exit(Status)
+    end,
+  Pid = spawn_link(Node, StartAux),
+  receive
+    {'EXIT', Pid, ExitStatus} ->
+      process_flag(trap_exit, false),
+      ok = concuerror_nodes:clear(Nodes),
+      ExitStatus
+  end.
 
 %%------------------------------------------------------------------------------
 
