@@ -20,6 +20,7 @@
 
 -concuerror_options_forced(
     [ {depth_bound, 100000}
+    , {max_processes, 30}
     , {non_racing_system, [user]}
     , {keep_going, true}
     , {interleaving_bound, 100}
