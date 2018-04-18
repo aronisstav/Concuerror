@@ -2137,7 +2137,7 @@ get_stacktrace(Top) ->
 
 not_concuerror_module(Atom) ->
   case atom_to_list(Atom) of
-    "concuerror" ++ _ -> false;
+    "concuerror" ++ _ -> true;%false;
     _ -> true
   end.
 
