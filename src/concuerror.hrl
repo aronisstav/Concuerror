@@ -175,6 +175,11 @@
               ],
               ['$1']}]))).
 %%------------------------------------------------------------------------------
+%% for parallel mode
+-define(initial_pid, "<0.110.0>").
+-define(pid_step, 15).
+-define(pid_number_of_tries, 200).
+%%------------------------------------------------------------------------------
 -type links() :: ets:tid().
 
 -define(links(Pid1, Pid2), [{Pid1, Pid2, active}, {Pid2, Pid1, active}]).
