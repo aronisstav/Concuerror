@@ -6,12 +6,13 @@
 
 -export([start/1, clear/1]).
 
+-include("concuerror.hrl").
 
 -spec start(concuerror_options:options()) -> [node()].
 
 start(Options) ->
   Name = hashed_name(Options),
-  _ = os:cmd("epmd -daemon"),
+  ok = start_epmd(),
   _ = net_kernel:start([Name, shortnames]), %TODO check errors
   {ok, Host} = inet:gethostname(),
   SchedulerNodeName = atom_to_list(Name) ++ "_1",
@@ -19,6 +20,15 @@ start(Options) ->
   Args = "-boot start_clean -noshell -pa " ++ Path,
   {ok, Node} = slave:start(Host, SchedulerNodeName, Args),
   [Node].
+
+start_epmd() ->
+  case os:cmd("epmd -names") of 
+    ?epmd_not_running_response ->
+      _ = os:cmd("epmd -daemon"),
+      start_epmd();
+    _ ->
+      ok
+  end.
 
 hashed_name(Args) ->
   PathValue = file:get_cwd(),
