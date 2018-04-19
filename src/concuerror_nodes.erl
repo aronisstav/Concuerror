@@ -37,7 +37,7 @@ hashed_name(Args) ->
   Name = "node" ++ HashString,
   list_to_atom(Name).
 
--spec clear([node()]) -> ok | {error, not_allowed} | {error, not_found}.
+-spec clear([node()]) -> ok.
 
 clear([]) ->
   ok;
@@ -47,7 +47,7 @@ clear([Node|Rest]) ->
 
 path_to_ebin() ->
   ModulePath = code:which(?MODULE),
-  finename:dirname(ModulePath).
+  filename:dirname(ModulePath).
 
 %% -spec send_ets_tables(pid()) -> ok.
 

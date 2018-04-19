@@ -1482,7 +1482,7 @@ get_next_pid(PidString) ->
   [Start, Mid, End] = string:split(PidString, ".", all),
   {MidInt,[]} = string:to_integer(Mid),
   NewMid = integer_to_list(MidInt + ?pid_step),
-  ?join([Start, NewMid, End], ".").
+  lists:flatten(?join([Start, NewMid, End], ".")).
 
 process_loop(#concuerror_info{delayed_notification = {true, Notification},
                               scheduler = Scheduler} = Info) ->
