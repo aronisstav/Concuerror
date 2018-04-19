@@ -19,8 +19,6 @@
 %% Interface for resetting:
 -export([process_top_loop/1]).
 
--export([intermediate_process/1]).
-
 -export([wrapper/4]).
 
 -export([explain_error/1]).
@@ -1460,25 +1458,23 @@ new_process(ParentInfo) ->
 try_and_spawn(IntentedPid, LastPid, 0, _) ->
   ?crash({failed_to_get_intended_pid, IntentedPid, LastPid});
 try_and_spawn(IntentedPid, _, TriesLeft, Info) ->
-  Pid = spawn(?MODULE, intermediate_process, [Info]),
+  Pid = spawn(fun() -> candidate_process_top(Info) end),
   case pid_to_list(Pid) =:= IntentedPid of
     true ->
       link(Pid),
-      Pid ! start,
+      Pid ! accept,
       Pid;
     false ->
-      Pid ! exit,
+      Pid ! reject,
       try_and_spawn(IntentedPid, Pid, TriesLeft-1, Info)
   end.
 
--spec intermediate_process(concuerror_info()) -> no_return() | ok.
-
-intermediate_process(Info) ->
+candidate_process_top(Info) ->
   receive
-    start ->
+    accept ->
       process_top_loop(Info);
-    exit ->
-      exit(wrong_pid)
+    reject ->
+      exit(normal)
   end.
 
 get_next_pid(PidString) ->
