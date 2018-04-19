@@ -1448,6 +1448,7 @@ new_process(ParentInfo) ->
     } = ParentInfo,
   case Parallel of
     false ->
+      %% Using this form for better debugging visibility
       spawn_link(?MODULE, process_top_loop, [Info]);
     true ->
       [{_, IntentedPid}] = ets:lookup(_NextPidTable, next),
@@ -1587,6 +1588,7 @@ process_loop(Info) ->
       ets:match_delete(Monitors, ?monitors_match_mine()),
       FinalInfo = NewInfo#concuerror_info{ref_queue = reset_ref_queue(Info)},
       _ = notify(reset_done, FinalInfo),
+      %% This allows a clean reset to the process_top_loop
       erlang:hibernate(concuerror_callback, process_top_loop, [FinalInfo]);
     deadlock_poll ->
       ?debug_flag(?loop, deadlock_poll),
