@@ -117,7 +117,7 @@
 spawn_first_process(Options) ->
   EtsTables = ets:new(ets_tables, [public]),
   ets:insert(EtsTables, {tid, 1}),
-  NextPidTable = ets:new(next, [public, {write_concurrency, true}, {read_concurrency, true}]),
+  NextPidTable = ets:new(next, [public]),
   ets:insert(NextPidTable, {next, ?initial_pid}),
   Info =
     #concuerror_info{
