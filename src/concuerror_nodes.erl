@@ -12,7 +12,7 @@
 
 start(Options) ->
   Name = hashed_name(Options),
-  ok = start_epmd(),
+  ok = start_epmd(?epmd_tries),
   _ = net_kernel:start([Name, shortnames]), %TODO check errors
   {ok, Host} = inet:gethostname(),
   SchedulerNodeName = atom_to_list(Name) ++ "_1",
@@ -21,11 +21,12 @@ start(Options) ->
   {ok, Node} = slave:start(Host, SchedulerNodeName, Args),
   [Node].
 
-start_epmd() ->
+start_epmd(0) -> epmd_not_starting;
+start_epmd(TriesLeft) ->
   case os:cmd("epmd -names") of 
     ?epmd_not_running_response ->
       _ = os:cmd("epmd -daemon"),
-      start_epmd();
+      start_epmd(TriesLeft - 1);
     _ ->
       ok
   end.
