@@ -77,7 +77,8 @@ start_parallel(RawOptions) ->
 	  end,
 	  exit(Status)
     end,
-  {Pid, Ref} = spawn_opt(Node, StartAux, [monitor]),
+  Pid = spawn(Node, StartAux),
+  Ref = monitor(process, Pid),
   receive
     {'DOWN', Ref, process, Pid, ExitStatus} ->
       ok = concuerror_nodes:clear(Nodes),
