@@ -30,7 +30,7 @@ hashed_name(Args) ->
 -spec clear([node()]) -> ok | {error, not_allowed} | {error, not_found}.
 
 clear([]) ->
-  _ = net_kernel:stop();
+  ok;
 clear([Node|Rest]) ->
   slave:stop(Node),
   clear(Rest).
