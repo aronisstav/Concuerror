@@ -174,6 +174,7 @@
               ['$1']}]))).
 %%------------------------------------------------------------------------------
 %% for parallel mode
+-define(epmd_not_running_response, "epmd: Cannot connect to local epmd\n").
 -define(initial_pid, "<0.110.0>").
 -define(pid_step, 15).
 -define(pid_number_of_tries, 200).
