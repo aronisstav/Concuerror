@@ -66,7 +66,6 @@ start(Options, LogMsgs) ->
 start_parallel(RawOptions) ->
   Nodes = concuerror_nodes:start(RawOptions),
   [Node|_Rest] = Nodes,
-  process_flag(trap_exit, true),
   StartAux =
     fun() ->
 	Status =
@@ -76,10 +75,9 @@ start_parallel(RawOptions) ->
 	  end,
 	  exit(Status)
     end,
-  Pid = spawn_link(Node, StartAux),
+  {Pid, Ref} = spawn_opt(Node, StartAux, [monitor]),
   receive
-    {'EXIT', Pid, ExitStatus} ->
-      process_flag(trap_exit, false),
+    {'DOWN', Ref, process, Pid, ExitStatus} ->
       ok = concuerror_nodes:clear(Nodes),
       ExitStatus
   end.
