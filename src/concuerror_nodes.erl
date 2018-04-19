@@ -36,11 +36,8 @@ clear([Node|Rest]) ->
   clear(Rest).
 
 path_to_ebin() ->
-  ModulePath = proplists:get_value(source, ?MODULE:module_info(compile)),
-  Dirs = string:split(ModulePath, "/", all),
-  ConcuerrorDirs = lists:droplast(lists:droplast(Dirs)),
-  EbinDirs = lists:append(ConcuerrorDirs, ["ebin"]),
-  string:join(EbinDirs, "/").
+  ModulePath = code:which(?MODULE),
+  finename:dirname(ModulePath).
 
 %% -spec send_ets_tables(pid()) -> ok.
 
