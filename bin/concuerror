@@ -8,7 +8,6 @@ main(Args) ->
   GetoptDir = filename:join([ScriptDir,"..","deps","getopt","ebin"]),
   ok = code:add_pathsa([EbinDir, GetoptDir]),
   concuerror:maybe_cover_compile(),
-  _ = os:cmd("epmd -daemon"),
   Status =
     case concuerror_options:parse_cl(Args) of
       {ok, Options} -> concuerror:run(Options);

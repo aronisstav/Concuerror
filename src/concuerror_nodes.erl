@@ -11,6 +11,7 @@
 
 start(Options) ->
   Name = hashed_name(Options),
+  _ = os:cmd("epmd -daemon"),
   _ = net_kernel:start([Name, shortnames]), %TODO check errors
   {ok, Host} = inet:gethostname(),
   SchedulerNodeName = atom_to_list(Name) ++ "_1",
