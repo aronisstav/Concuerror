@@ -47,7 +47,7 @@ clear([Node|Rest]) ->
 
 path_to_ebin() ->
   ModulePath = code:which(?MODULE),
-  finename:dirname(ModulePath).
+  filename:dirname(ModulePath).
 
 %% -spec send_ets_tables(pid()) -> ok.
 
