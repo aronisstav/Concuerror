@@ -1479,7 +1479,7 @@ candidate_process_top(Info) ->
   end.
 
 get_next_pid(PidString) ->
-  [Start, Mid, End] = string:split(PidString, ".", all),
+  [Start, Mid, End] = ?get_tokens(PidString, "."),
   {MidInt,[]} = string:to_integer(Mid),
   NewMid = integer_to_list(MidInt + ?pid_step),
   lists:flatten(?join([Start, NewMid, End], ".")).
