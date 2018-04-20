@@ -92,7 +92,9 @@
           message_queue = queue:new() :: message_queue(),
           monitors                    :: monitors(),
           event = none                :: 'none' | event(),
+          next_pid_table              :: ets:tid(),
           notify_when_ready           :: {pid(), boolean()},
+          parallel                    :: boolean(),
           processes                   :: processes(),
           receive_counter = 1         :: pos_integer(),
           ref_queue = new_ref_queue() :: ref_queue_2(),
@@ -113,6 +115,8 @@
 spawn_first_process(Options) ->
   EtsTables = ets:new(ets_tables, [public]),
   ets:insert(EtsTables, {tid, 1}),
+  NextPidTable = ets:new(next, [public]),
+  ets:insert(NextPidTable, {next, ?initial_pid}),
   Info =
     #concuerror_info{
        after_timeout  = ?opt(after_timeout, Options),
@@ -121,7 +125,9 @@ spawn_first_process(Options) ->
        links          = ets:new(links, [bag, public]),
        logger         = ?opt(logger, Options),
        monitors       = ets:new(monitors, [bag, public]),
+       next_pid_table = NextPidTable,
        notify_when_ready = {self(), true},
+       parallel       = ?opt(parallel, Options),
        processes      = Processes = ?opt(processes, Options),
        scheduler      = self(),
        system_ets_entries = ets:new(system_ets_entries, [bag, public]),
@@ -1436,7 +1442,47 @@ delete_system_entries({T, O}, true) ->
 
 new_process(ParentInfo) ->
   Info = ParentInfo#concuerror_info{notify_when_ready = {self(), true}},
-  spawn_link(?MODULE, process_top_loop, [Info]).
+  #concuerror_info{
+     next_pid_table = _NextPidTable,
+     parallel = Parallel
+    } = ParentInfo,
+  case Parallel of
+    false ->
+      %% Using this form for better debugging visibility
+      spawn_link(?MODULE, process_top_loop, [Info]);
+    true ->
+      [{_, IntentedPid}] = ets:lookup(_NextPidTable, next),
+      ets:insert(_NextPidTable, {next, get_next_pid(IntentedPid)}),
+      try_and_spawn(IntentedPid , self(), ?pid_number_of_tries, Info)
+  end.
+
+try_and_spawn(IntentedPid, LastPid, 0, _) ->
+  ?crash({failed_to_get_intended_pid, IntentedPid, LastPid});
+try_and_spawn(IntentedPid, _, TriesLeft, Info) ->
+  Pid = spawn(fun() -> candidate_process_top(Info) end),
+  case pid_to_list(Pid) =:= IntentedPid of
+    true ->
+      link(Pid),
+      Pid ! accept,
+      Pid;
+    false ->
+      Pid ! reject,
+      try_and_spawn(IntentedPid, Pid, TriesLeft-1, Info)
+  end.
+
+candidate_process_top(Info) ->
+  receive
+    accept ->
+      process_top_loop(Info);
+    reject ->
+      exit(normal)
+  end.
+
+get_next_pid(PidString) ->
+  [Start, Mid, End] = ?get_tokens(PidString, "."),
+  {MidInt,[]} = string:to_integer(Mid),
+  NewMid = integer_to_list(MidInt + ?pid_step),
+  lists:flatten(?join([Start, NewMid, End], ".")).
 
 process_loop(#concuerror_info{delayed_notification = {true, Notification},
                               scheduler = Scheduler} = Info) ->
@@ -1542,6 +1588,7 @@ process_loop(Info) ->
       ets:match_delete(Monitors, ?monitors_match_mine()),
       FinalInfo = NewInfo#concuerror_info{ref_queue = reset_ref_queue(Info)},
       _ = notify(reset_done, FinalInfo),
+      %% This allows a clean reset to the process_top_loop
       erlang:hibernate(concuerror_callback, process_top_loop, [FinalInfo]);
     deadlock_poll ->
       ?debug_flag(?loop, deadlock_poll),
@@ -2162,7 +2209,12 @@ explain_error({unsupported_request, Name, Type}) ->
   io_lib:format(
     "A process sent a request of type '~w' to ~p. Concuerror does not yet support"
     " this type of request to this process.",
-    [Type, Name]).
+    [Type, Name]);
+explain_error({failed_to_get_intended_pid, IntentedPid, LastPid}) ->
+  io_lib:format(
+    "A process attempted to spawn another process with a pid of ~p but failed after"
+    " ~.10B tries. The last generated pid was ~p.",
+    [IntentedPid, ?pid_number_of_tries, LastPid]).
 
 location(F, L) ->
   Basename = filename:basename(F),

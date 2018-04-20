@@ -117,7 +117,7 @@ $(PLT):
 .PHONY: tests
 tests: all
 	@$(RM) $@/thediff
-	@(cd $@; ./runtests.py)
+	@(cd $@; ./runtests.py suites/parallel_tests/src/*.erl)
 
 ## the -j 1 below is so that the outputs of tests are not shown interleaved
 .PHONY: tests-real

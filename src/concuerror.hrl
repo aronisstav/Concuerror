@@ -173,6 +173,18 @@
               [{'=/=', '$2', exited}],
               ['$1']}]))).
 %%------------------------------------------------------------------------------
+%% for parallel mode
+-ifdef(BEFORE_OTP_20).
+-define(get_tokens(String, Sep), string:tokens(String, Sep)).
+-else.
+-define(get_tokens(String, Sep), string:lexemes(String, Sep)).
+-endif.
+-define(epmd_tries, 10).
+-define(epmd_not_running_response, "epmd: Cannot connect to local epmd\n").
+-define(initial_pid, "<0.110.0>").
+-define(pid_step, 15).
+-define(pid_number_of_tries, 200).
+%%------------------------------------------------------------------------------
 -type links() :: ets:tid().
 
 -define(links(Pid1, Pid2), [{Pid1, Pid2, active}, {Pid2, Pid1, active}]).
