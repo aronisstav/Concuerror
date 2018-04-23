@@ -7,7 +7,7 @@
 *.Pbeam
 *.beam
 .concuerror_plt
-/concuerror
+/bin/concuerror
 *concuerror_report.txt
 erl_crash.dump
 tests/test_one

@@ -21,7 +21,7 @@ tests: all
 tests-real: all
 	@$(RM) $@/thediff
 	$(MAKE) -j 1 -C $@ \
-		CONCUERROR=$(abspath concuerror) \
+		CONCUERROR=$(abspath bin/concuerror) \
 		CONCUERROR_EBIN=$(abspath _build/default/lib/concuerror/ebin/) \
 		DIFFER=$(abspath tests/differ) \
 		DIFFPRINTER=$(abspath $@/thediff)

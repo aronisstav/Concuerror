@@ -4,14 +4,14 @@
 
 print_blue "$0"
 
-> /dev/null make -sj -C "$(dirname "$CONCUERROR")" all
+> /dev/null make -sj -C "$(dirname "$CONCUERROR")"/.. all
 testing 'Can clean'
-make -sj -C "$(dirname "$CONCUERROR")" clean
+make -sj -C "$(dirname "$CONCUERROR")"/.. clean
 good
 
-> /dev/null make -sj -C "$(dirname "$CONCUERROR")" clean
+> /dev/null make -sj -C "$(dirname "$CONCUERROR")"/.. clean
 testing 'Can compile and run with dev'
-make -sj -C "$(dirname "$CONCUERROR")" dev
+make -sj -C "$(dirname "$CONCUERROR")"/.. dev
 concuerror_console -f ../options/src/six.erl -v9
 outputhas "\-dev"
 
@@ -20,8 +20,8 @@ testing "Can compile and run with pedantic"
 make -sj -C $(dirname $CONCUERROR) pedantic
 
 testing 'Restore normal Concuerror'
-> /dev/null make -sj -C "$(dirname "$CONCUERROR")" clean
-> /dev/null make -sj -C "$(dirname "$CONCUERROR")"
+> /dev/null make -sj -C "$(dirname "$CONCUERROR")"/.. clean
+> /dev/null make -sj -C "$(dirname "$CONCUERROR")"/..
 good
 
 . footer

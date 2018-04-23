@@ -11,12 +11,5 @@
   {maintainers, ["Stavros Aronis"
                 ]},
   {licenses, ["BSD 2-Clause"]},
-  {links, [{"Github", "https://github.com/parapluu/Concuerror"}]},
-  {files, ["src"
-          ,"test"
-          ,"rebar.config"
-          ,"rebar.config.script"
-          ,"README.md"
-          ,"LICENSE"
-          ]}
+  {links, [{"Github", "https://github.com/parapluu/Concuerror"}]}
  ]}.

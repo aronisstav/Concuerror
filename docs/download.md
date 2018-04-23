@@ -15,7 +15,7 @@ $ cd Concuerror
 $ make -j
 {% endhighlight %}
 
-The preferred way to start concuerror is via the `concuerror` escript.
+The preferred way to start concuerror is via the `bin/concuerror` escript.
 
 ### Supported OTP Releases
 
