@@ -155,6 +155,10 @@ options() ->
   ,{parallel, [experimental], $p, {boolean, false},
     "Parallel exploration of interleavings",
     nolong}
+  ,{number_of_processes, [experimental], $n, {integer, 50},
+    "Maximum number of total processes",
+    "The maximum number of different processes that can be spawned from different"
+    "interleavings. Concuerror will stop exploration beyond this limit."}
   ,{optimal, [por], undefined, boolean,
     "Synonym for `--dpor optimal (true) | source (false)`.",
     nolong}
@@ -317,7 +321,8 @@ check_validity(Key) ->
       when
         Key =:= after_timeout;
         Key =:= depth_bound;
-        Key =:= print_depth
+        Key =:= print_depth;
+        Key =:= number_of_processes
         ->
       {fun(V) -> V > 0 end, "a positive integer"};
     dpor ->
@@ -1185,6 +1190,9 @@ consistent([{disable_sleep_sets, true} = Option|Rest], Acc) ->
     Rest ++ Acc, Option),
   consistent(Rest, [Option|Acc]);
 consistent([{parallel, true} = Option|Rest], Acc) ->
+  %% XXX: Add any assertions you need here.
+  consistent(Rest, [Option|Acc]);
+consistent([{number_of_processes, _} = Option|Rest], Acc) ->
   %% XXX: Add any assertions you need here.
   consistent(Rest, [Option|Acc]);
 consistent([{scheduling_bound, _} = Option|Rest], Acc) ->
