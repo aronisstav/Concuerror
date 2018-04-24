@@ -63,19 +63,12 @@
 -ifdef(BEFORE_OTP_17).
 -type ref_queue() :: queue().
 -type message_queue() :: queue().
--type process_queue() :: queue().
 -else.
 -type ref_queue() :: queue:queue(reference()).
 -type message_queue() :: queue:queue(#message{}).
--type process_queue() :: queue:queue(pid()).
 -endif.
 
 -type ref_queue_2() :: {ref_queue(), ref_queue()}.
-
--record(generator_state, {
-          parallel      :: boolean(),
-          process_queue :: process_queue()
-         }).
 
 -type status() :: 'running' | 'waiting' | 'exiting' | 'exited'.
 
@@ -102,7 +95,6 @@
           message_queue = queue:new() :: message_queue(),
           monitors                    :: monitors(),
           event = none                :: 'none' | event(),
-          next_pid_table              :: ets:tid(),
           notify_when_ready           :: {pid(), boolean()},
           number_of_processes         :: pos_integer(),
           parallel                    :: boolean(),
@@ -1476,9 +1468,9 @@ start_process_generator(Options) ->
   Parent = self(),
   Fun =
     fun() ->
-        State = initialize_generator(Options),
+        ProcessQueue = initialize_generator(Options),
         Parent ! process_gen_ready,
-        generator_loop(State)
+        generator_loop(ProcessQueue)
     end,
   P = spawn_link(Fun),
   receive
@@ -1489,9 +1481,7 @@ initialize_generator(Options) ->
   TotalProcesses = ?opt(number_of_processes, Options),
   Fun = fun() -> idle_process() end,
   AvailableProcesses = [spawn(Fun) || _ <- lists:seq(1, TotalProcesses)],
-  #generator_state{
-     process_queue = queue:from_list(AvailableProcesses)
-    }.
+  queue:from_list(AvailableProcesses).
 
 idle_process() ->
   receive
@@ -1499,18 +1489,17 @@ idle_process() ->
       process_top_loop(Info)
   end.
 
-generator_loop(State) ->
-  #generator_state{process_queue = ProcessQueue} = State,
+generator_loop(ProcessQueue) ->
   receive
     {Scheduler, get_new_process, Info} ->
       case queue:out(ProcessQueue) of
 	{empty, ProcessQueue} ->
 	  Scheduler ! process_limit_exceeded,
-	  generator_loop(State);
+	  generator_loop(ProcessQueue);
 	{{value, Process}, NewProcessQueue} ->
 	  Process ! {wakeup, Info},
 	  Scheduler ! {new_process, Process},
-	  generator_loop(State#generator_state{process_queue = NewProcessQueue})
+	  generator_loop(NewProcessQueue)
       end;
     {Pid, cleanup} ->
       _ = [exit(IdleProcess, kill) || IdleProcess <- queue:to_list(ProcessQueue)],
