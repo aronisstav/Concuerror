@@ -19,6 +19,9 @@
 %% Interface for resetting:
 -export([process_top_loop/1]).
 
+%% Interface to concuerror.erl
+-export([start_process_generator/1, stop_process_generator/1]).
+
 -export([wrapper/4]).
 
 -export([explain_error/1]).
@@ -60,12 +63,19 @@
 -ifdef(BEFORE_OTP_17).
 -type ref_queue() :: queue().
 -type message_queue() :: queue().
+-type process_queue() :: queue().
 -else.
 -type ref_queue() :: queue:queue(reference()).
 -type message_queue() :: queue:queue(#message{}).
+-type process_queue() :: queue:queue(pid()).
 -endif.
 
 -type ref_queue_2() :: {ref_queue(), ref_queue()}.
+
+-record(generator_state, {
+          parallel      :: boolean(),
+          process_queue :: process_queue()
+         }).
 
 -type status() :: 'running' | 'waiting' | 'exiting' | 'exited'.
 
@@ -96,6 +106,7 @@
           notify_when_ready           :: {pid(), boolean()},
           number_of_processes         :: pos_integer(),
           parallel                    :: boolean(),
+          process_generator           :: pid(),
           processes                   :: processes(),
           receive_counter = 1         :: pos_integer(),
           ref_queue = new_ref_queue() :: ref_queue_2(),
@@ -116,8 +127,6 @@
 spawn_first_process(Options) ->
   EtsTables = ets:new(ets_tables, [public]),
   ets:insert(EtsTables, {tid, 1}),
-  NextPidTable = ets:new(next, [public]),
-  ets:insert(NextPidTable, {next, ?initial_pid}),
   Info =
     #concuerror_info{
        after_timeout  = ?opt(after_timeout, Options),
@@ -126,10 +135,10 @@ spawn_first_process(Options) ->
        links          = ets:new(links, [bag, public]),
        logger         = ?opt(logger, Options),
        monitors       = ets:new(monitors, [bag, public]),
-       next_pid_table = NextPidTable,
        notify_when_ready = {self(), true},
        number_of_processes = ?opt(number_of_processes, Options),
        parallel       = ?opt(parallel, Options),
+       process_generator = ?opt(process_generator, Options),
        processes      = Processes = ?opt(processes, Options),
        scheduler      = self(),
        system_ets_entries = ets:new(system_ets_entries, [bag, public]),
@@ -1445,46 +1454,79 @@ delete_system_entries({T, O}, true) ->
 new_process(ParentInfo) ->
   Info = ParentInfo#concuerror_info{notify_when_ready = {self(), true}},
   #concuerror_info{
-     next_pid_table = _NextPidTable,
-     parallel = Parallel
+     process_generator = ProcessGenerator
     } = ParentInfo,
-  case Parallel of
-    false ->
-      %% Using this form for better debugging visibility
-      spawn_link(?MODULE, process_top_loop, [Info]);
-    true ->
-      [{_, IntentedPid}] = ets:lookup(_NextPidTable, next),
-      ets:insert(_NextPidTable, {next, get_next_pid(IntentedPid)}),
-      try_and_spawn(IntentedPid , self(), ?pid_number_of_tries, Info)
-  end.
-
-try_and_spawn(IntentedPid, LastPid, 0, _) ->
-  ?crash({failed_to_get_intended_pid, IntentedPid, LastPid});
-try_and_spawn(IntentedPid, _, TriesLeft, Info) ->
-  Pid = spawn(fun() -> candidate_process_top(Info) end),
-  case pid_to_list(Pid) =:= IntentedPid of
-    true ->
-      link(Pid),
-      Pid ! accept,
-      Pid;
-    false ->
-      Pid ! reject,
-      try_and_spawn(IntentedPid, Pid, TriesLeft-1, Info)
-  end.
-
-candidate_process_top(Info) ->
+  ProcessGenerator ! {self(), get_new_process, Info},
   receive
-    accept ->
-      process_top_loop(Info);
-    reject ->
-      exit(normal)
+    {new_process, Pid} ->
+      link(Pid),
+      Pid;
+    process_limit_exceeded ->
+      #concuerror_info{
+	 number_of_processes = NumberOfProcesses
+	} = ParentInfo,
+      ?crash({process_limit_exceeded, NumberOfProcesses})
   end.
 
-get_next_pid(PidString) ->
-  [Start, Mid, End] = ?get_tokens(PidString, "."),
-  {MidInt,[]} = string:to_integer(Mid),
-  NewMid = integer_to_list(MidInt + ?pid_step),
-  lists:flatten(?join([Start, NewMid, End], ".")).
+%%------------------------------------------------------------------------------
+
+-spec start_process_generator(concuerror_options:options()) -> pid().
+
+start_process_generator(Options) ->
+  Parent = self(),
+  Fun =
+    fun() ->
+        State = initialize_generator(Options),
+        Parent ! process_gen_ready,
+        generator_loop(State)
+    end,
+  P = spawn_link(Fun),
+  receive
+    process_gen_ready -> P
+  end.
+
+initialize_generator(Options) ->
+  TotalProcesses = ?opt(number_of_processes, Options),
+  Fun = fun() -> idle_process() end,
+  AvailableProcesses = [spawn(Fun) || _ <- lists:seq(1, TotalProcesses)],
+  #generator_state{
+     process_queue = queue:from_list(AvailableProcesses)
+    }.
+
+idle_process() ->
+  receive
+    {wakeup, Info} ->
+      process_top_loop(Info)
+  end.
+
+generator_loop(State) ->
+  #generator_state{process_queue = ProcessQueue} = State,
+  receive
+    {Scheduler, get_new_process, Info} ->
+      case queue:out(ProcessQueue) of
+	{empty, ProcessQueue} ->
+	  Scheduler ! process_limit_exceeded,
+	  generator_loop(State);
+	{{value, Process}, NewProcessQueue} ->
+	  Process ! {wakeup, Info},
+	  Scheduler ! {new_process, Process},
+	  generator_loop(State#generator_state{process_queue = NewProcessQueue})
+      end;
+    {Pid, cleanup} ->
+      _ = [exit(IdleProcess, kill) || IdleProcess <- queue:to_list(ProcessQueue)],
+      Pid ! done
+  end.
+
+-spec stop_process_generator(pid()) -> ok.
+
+stop_process_generator(ProcessGenerator) ->
+  ProcessGenerator ! {self(), cleanup},
+  receive
+    done ->
+      ok
+  end.
+
+%%------------------------------------------------------------------------------
 
 process_loop(#concuerror_info{delayed_notification = {true, Notification},
                               scheduler = Scheduler} = Info) ->
@@ -2222,11 +2264,11 @@ explain_error({unsupported_request, Name, Type}) ->
     "A process sent a request of type '~w' to ~p. Concuerror does not yet support"
     " this type of request to this process.",
     [Type, Name]);
-explain_error({failed_to_get_intended_pid, IntentedPid, LastPid}) ->
+explain_error({process_limit_exceeded, NumberOfProcesses}) ->
   io_lib:format(
-    "A process attempted to spawn another process with a pid of ~p but failed after"
-    " ~.10B tries. The last generated pid was ~p.",
-    [IntentedPid, ?pid_number_of_tries, LastPid]).
+    "The process limit of ~.10B processes has been exceeded. You should try and increase "
+    " the maximum number of total processes generated by using the option -n.",
+    [NumberOfProcesses]).
 
 location(F, L) ->
   Basename = filename:basename(F),
