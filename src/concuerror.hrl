@@ -1,5 +1,3 @@
--include("concuerror_otp_version.hrl").
-
 %%------------------------------------------------------------------------------
 -ifdef(BEFORE_OTP_19).
 -define(join(Strings, Sep), string:join(Strings, Sep)).

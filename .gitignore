@@ -1,3 +1,5 @@
+/_build
+
 # NOTE! Please use 'git ls-files -i --exclude-standard'
 # command after changing this file, to see if there are
 # any tracked files which get ignored after the change.
@@ -5,7 +7,7 @@
 *.Pbeam
 *.beam
 .concuerror_plt
-/concuerror
+/bin/concuerror
 *concuerror_report.txt
 erl_crash.dump
 tests/test_one

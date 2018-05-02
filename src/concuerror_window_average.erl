@@ -11,8 +11,6 @@
 
 %%------------------------------------------------------------------------------
 
--include("concuerror_otp_version.hrl").
-
 -ifdef(BEFORE_OTP_17).
 %% defined as builtin
 -else.

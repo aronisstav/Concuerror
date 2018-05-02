@@ -2,18 +2,24 @@ sudo: false
 
 language: erlang
 
+script:
+- curl -#fSLo ./rebar3 https://s3.amazonaws.com/rebar3/rebar3 && chmod +x ./rebar3
+- export PATH="$PATH:$PWD"
+- rebar3 version
+- $TEST
+
 # Two stages, so that basic tests are run first
 stages:
-  - basic
-  - test
+- basic
+- test
 
 matrix:
-  fast_finish: true
+# fast_finish: true
 
   # The Travis job that checks latest OTP version is allowed to fail
   # (see relevant include below)
   allow_failures:
-  - env: TEST=".travis/travis_has_latest_otp_version"
+  - env: TEST='.travis/travis_has_latest_otp_version'
 
   include:
 
@@ -28,23 +34,29 @@ matrix:
   # When the test starts failing with 'X' again, Travis has the new version.
   # At that point, update otp_release in the corresponding list below
 
-  - env: TEST=".travis/travis_has_latest_otp_version"
+  - env: TEST='.travis/travis_has_latest_otp_version'
     otp_release: 20.3
     stage: basic
 
   # Check dialyzer
-  - env: TEST="make dialyze"
+  - env: TEST='rebar3 dialyzer'
     stage: basic
 
+  # Code coverage test, that includes tests and tests-real
+  - env: TEST='make cover'
+    stage: test
+
   # Minimal support for R16B03-1
-  - env: TEST=".travis/script tests-real"
+  - env: TEST='make tests-real'
     otp_release: R16B03-1
     stage: test
 
 env:
-
-  - TEST=".travis/script tests"
-  - TEST=".travis/script tests-real"
+  global:
+  - CONCUERROR_COVER="$PWD/cover/data"
+  matrix:
+  - TEST='make tests-real'
+  - TEST='make tests'
 
 otp_release:
 
@@ -62,8 +74,13 @@ otp_release:
   # R16B03-1 is minimally supported (see matrix section)
 
 
-# Travis build steps configuration
+after_failure: './.travis/after_failure'
 
+before_script:
+- cp plts/plt-$TRAVIS_OTP_RELEASE .concuerror_plt || true
+before_cache:
+- mkdir -p plts
+- cp .concuerror_plt plts/plt-$TRAVIS_OTP_RELEASE || true
 cache:
    directories:
    - plts
@@ -71,17 +88,5 @@ cache:
 before_install:
   - .travis/before_install
 
-before_script:
-  - .travis/before_script
-
-script:
- - $TEST
-
-before_cache:
-  - .travis/before_cache
-
 after_success:
   - .travis/after_success
-
-after_failure:
-  - .travis/after_failure

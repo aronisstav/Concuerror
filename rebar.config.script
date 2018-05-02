@@ -1,0 +1,24 @@
+case os:find_executable("git") of
+    false -> io:format(standard_error, "`git` could not be found\n", []);
+    Exe ->
+        CONFIG1 =
+            case os:getenv("TRAVIS_JOB_ID") of
+                false -> CONFIG;
+                Id ->
+                    CoverKey = coveralls_service_job_id,
+                    lists:keystore(CoverKey, 1, CONFIG, {CoverKey,Id})
+            end,
+        Args = ["describe", "--abbrev=6", "--always", "--tags"],
+        Options = [exit_status, use_stdio, {args,Args}],
+        Port = open_port({spawn_executable,Exe}, Options),
+        receive
+            {Port,{data,VSNWithNewline}} ->
+                VSN = lists:droplast(VSNWithNewline),
+                Key = erl_opts,
+                {Key,ErlOpts} = lists:keyfind(Key, 1, CONFIG1),
+                NewErlOpts = [{d,'VSN_BASE',VSN} | ErlOpts],
+                lists:keystore(Key, 1, CONFIG1, {Key,NewErlOpts})
+        after 200 ->
+                io:format(standard_error, "error running git-describe\n", [])
+        end
+end.

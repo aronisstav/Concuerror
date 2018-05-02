@@ -3,7 +3,7 @@
 -module(concuerror).
 
 %% Main entry point.
--export([run/1]).
+-export([run/1, main/1]).
 
 %%------------------------------------------------------------------------------
 
@@ -19,6 +19,18 @@
 -include("concuerror.hrl").
 
 %%------------------------------------------------------------------------------
+
+-spec main(list(string())) -> no_return().
+main(Args) ->
+  concuerror:maybe_cover_compile(),
+  Status =
+    case concuerror_options:parse_cl(Args) of
+      {ok, Options} -> concuerror:run(Options);
+      {exit, ExitStatus} ->
+        concuerror:maybe_cover_export(Args),
+        ExitStatus
+    end,
+  cl_exit(Status).
 
 -spec run(concuerror_options:options()) -> exit_status().
 
@@ -99,3 +111,11 @@ explain(Reason) ->
     _:_ ->
       io_lib:format("~n  Reason: ~p", [Reason])
   end.
+
+-spec cl_exit(concuerror:exit_status()) -> no_return().
+cl_exit(ok) ->
+  erlang:halt(0);
+cl_exit(error) ->
+  erlang:halt(1);
+cl_exit(fail) ->
+  erlang:halt(2).
