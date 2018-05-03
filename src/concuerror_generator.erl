@@ -5,6 +5,8 @@
 %% Interface to concuerror.erl
 -export([start/1, stop/1]).
 
+-include("concuerror.hrl").
+
 -ifdef(BEFORE_OTP_17).
 -type process_queue() :: queue().
 -else.
@@ -34,11 +36,10 @@ start(Options) ->
 initialize_generator(Options) ->
   MaxProcesses = ?opt(max_processes, Options),
   Fun = fun() -> idle_process() end,
-  AvailableProcesses = [spawn(Fun) || _ <- lists:seq(1, TotalProcesses)],
-  queue:from_list(AvailableProcesses),
+  AvailableProcesses = [spawn(Fun) || _ <- lists:seq(1, MaxProcesses)],
   #generator_state{
      max_processes = MaxProcesses,
-     process_queue = AvailableProcesses
+     process_queue = queue:from_list(AvailableProcesses)
     }.
 
 idle_process() ->
