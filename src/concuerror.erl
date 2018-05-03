@@ -25,14 +25,9 @@
 run(RawOptions) ->
   maybe_cover_compile(),
   Status =
-    case ?opt(parallel, RawOptions) of
-      true ->
-	start_parallel(RawOptions);
-      _ ->
-	case concuerror_options:finalize(RawOptions) of
-	  {ok, Options, LogMsgs} -> start(Options, LogMsgs);
-	  {exit, ExitStatus} -> ExitStatus
-	end
+    case concuerror_options:finalize(RawOptions) of
+      {ok, Options, LogMsgs} -> start(Options, LogMsgs);
+      {exit, ExitStatus} -> ExitStatus
     end,
   maybe_cover_export(RawOptions),
   Status.
@@ -65,28 +60,6 @@ start(Options, LogMsgs) ->
   ok = concuerror_callback:stop_process_generator(ProcessGenerator),
   ets:delete(Processes),
   ExitStatus.
-
-%%------------------------------------------------------------------------------
-
-start_parallel(RawOptions) ->
-  Nodes = concuerror_nodes:start(RawOptions),
-  [Node|_Rest] = Nodes,
-  StartAux =
-    fun() ->
-	Status =
-	  case concuerror_options:finalize(RawOptions) of
-	    {ok, Options, LogMsgs} -> start(Options, LogMsgs);
-	    {exit, ExitStatus} -> ExitStatus
-	  end,
-	  exit(Status)
-    end,
-  Pid = spawn(Node, StartAux),
-  Ref = monitor(process, Pid),
-  receive
-    {'DOWN', Ref, process, Pid, ExitStatus} ->
-      ok = concuerror_nodes:clear(Nodes),
-      ExitStatus
-  end.
 
 %%------------------------------------------------------------------------------
 
