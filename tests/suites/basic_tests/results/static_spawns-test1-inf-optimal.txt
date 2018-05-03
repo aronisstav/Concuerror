@@ -1,0 +1,49 @@
+Concuerror v0.18-285-gab3ca8 started at 03 May 2018 18:26:28
+ Options:
+  [{after_timeout,infinity},
+   {assertions_only,false},
+   {assume_racing,false},
+   {depth_bound,500},
+   {disable_sleep_sets,false},
+   {dpor,optimal},
+   {entry_point,{static_spawns,test1,[]}},
+   {exclude_module,[]},
+   {files,["/home/panagiotis/Documents/sxoli/dipl/Concuerror/tests/suites/basic_tests/src/static_spawns.erl"]},
+   {first_process_errors_only,false},
+   {ignore_error,[]},
+   {instant_delivery,true},
+   {interleaving_bound,infinity},
+   {keep_going,true},
+   {max_processes,5},
+   {non_racing_system,[]},
+   {parallel,false},
+   {print_depth,20},
+   {quiet,true},
+   {scheduling,round_robin},
+   {scheduling_bound_type,none},
+   {show_races,false},
+   {strict_scheduling,false},
+   {symbolic_names,true},
+   {timeout,5000},
+   {treat_as_normal,[]},
+   {use_receive_patterns,true}]
+################################################################################
+Exploration completed!
+  No errors found!
+################################################################################
+Tips:
+--------------------------------------------------------------------------------
+* Running without a scheduling_bound corresponds to verification and may take a long time.
+
+################################################################################
+Info:
+--------------------------------------------------------------------------------
+* Writing results in /home/panagiotis/Documents/sxoli/dipl/Concuerror/tests/results/basic_tests/results/static_spawns-test1-inf-optimal.txt
+* Automatically instrumented module io_lib
+* Showing PIDs as "<symbolic name(/last registered name)>" ('-h symbolic_names').
+* Instrumented & loaded module static_spawns
+* Automatically instrumented module erlang
+
+################################################################################
+Done at 03 May 2018 18:26:28 (Exit status: ok)
+  Summary: 0 errors, 1/1 interleavings explored
