@@ -32,7 +32,7 @@ start(Options) ->
   end.
 
 initialize_generator(Options) ->
-  MaxProcesses = ?opt(number_of_processes, Options),
+  MaxProcesses = ?opt(max_processes, Options),
   Fun = fun() -> idle_process() end,
   AvailableProcesses = [spawn(Fun) || _ <- lists:seq(1, TotalProcesses)],
   queue:from_list(AvailableProcesses),
