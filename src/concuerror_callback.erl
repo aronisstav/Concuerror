@@ -93,7 +93,7 @@
           monitors                    :: monitors(),
           event = none                :: 'none' | event(),
           notify_when_ready           :: {pid(), boolean()},
-          process_generator           :: pid(),
+          process_spawner           :: pid(),
           processes                   :: processes(),
           receive_counter = 1         :: pos_integer(),
           ref_queue = new_ref_queue() :: ref_queue_2(),
@@ -123,7 +123,7 @@ spawn_first_process(Options) ->
        logger         = ?opt(logger, Options),
        monitors       = ets:new(monitors, [bag, public]),
        notify_when_ready = {self(), true},
-       process_generator = ?opt(process_generator, Options),
+       process_spawner = ?opt(process_spawner, Options),
        processes      = Processes = ?opt(processes, Options),
        scheduler      = self(),
        system_ets_entries = ets:new(system_ets_entries, [bag, public]),
@@ -1437,16 +1437,10 @@ delete_system_entries({T, O}, true) ->
   ets:delete_object(T, O).
 
 new_process(ParentInfo) ->
+  #concuerror_info{process_spawner = ProcessSpawner} = ParentInfo,
   Info = ParentInfo#concuerror_info{notify_when_ready = {self(), true}},
-  #concuerror_info{process_generator = ProcessGenerator} = ParentInfo,
-  ProcessGenerator ! {self(), get_new_process, Info},
-  receive
-    {new_process, Pid} ->
-      link(Pid),
-      Pid;
-    {process_limit_exceeded, MaxProcesses} ->
-      ?crash({process_limit_exceeded, MaxProcesses})
-  end.
+  MFArgs = {?MODULE, process_top_loop, [Info]},
+  concuerror_process_spawner:spawn_link(ProcessSpawner, MFArgs).
 
 process_loop(#concuerror_info{delayed_notification = {true, Notification},
                               scheduler = Scheduler} = Info) ->
@@ -2183,12 +2177,7 @@ explain_error({unsupported_request, Name, Type}) ->
   io_lib:format(
     "A process sent a request of type '~w' to ~p. Concuerror does not yet support"
     " this type of request to this process.",
-    [Type, Name]);
-explain_error({process_limit_exceeded, MaxProcesses}) ->
-  io_lib:format(
-    "Your test is using more than ~w processes (--max_processes). Increase the"
-    " limit or consider using fewer processes.",
-    [MaxProcesses]).
+    [Type, Name]).
 
 location(F, L) ->
   Basename = filename:basename(F),
