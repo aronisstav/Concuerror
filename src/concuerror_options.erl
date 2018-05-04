@@ -152,9 +152,6 @@ options() ->
     "                exploration is too slow. Use 'optimal' if a lot of~n"
     "                interleavings are reported as sleep-set blocked.~n"
     "- 'persistent': Using persistent sets. Do not use."}
-  ,{parallel, [experimental], $p, {boolean, false},
-    "Parallel exploration of interleavings",
-    nolong}
   ,{max_processes, [experimental], undefined, {integer, 50},
     "Maximum number of processes",
     "The maximum number of processes used by your test."
