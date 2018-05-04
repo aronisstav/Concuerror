@@ -152,7 +152,7 @@ options() ->
     "                exploration is too slow. Use 'optimal' if a lot of~n"
     "                interleavings are reported as sleep-set blocked.~n"
     "- 'persistent': Using persistent sets. Do not use."}
-  ,{max_processes, [experimental], undefined, {integer, 50},
+  ,{max_processes, [experimental], undefined, {integer, 20},
     "Maximum number of processes",
     "The maximum number of processes used by your test."
     " Concuerror will stop exploration beyond this limit."}
