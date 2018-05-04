@@ -93,7 +93,7 @@
           monitors                    :: monitors(),
           event = none                :: 'none' | event(),
           notify_when_ready           :: {pid(), boolean()},
-          process_spawner           :: pid(),
+          process_spawner             :: pid(),
           processes                   :: processes(),
           receive_counter = 1         :: pos_integer(),
           ref_queue = new_ref_queue() :: ref_queue_2(),
