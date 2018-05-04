@@ -57,8 +57,8 @@ start(Options, LogMsgs) ->
         failed
     end,
   ?trace(Logger, "Reached the end!~n",[]),
-  ExitStatus = concuerror_logger:finish(Logger, SchedulerStatus),
-  concuerror_estimator:finish(Estimator),
+  ExitStatus = concuerror_logger:stop(Logger, SchedulerStatus),
+  concuerror_estimator:stop(Estimator),
   concuerror_process_spawner:stop(ProcessSpawner),
   ets:delete(Processes),
   ExitStatus.
