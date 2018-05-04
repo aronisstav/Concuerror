@@ -154,8 +154,7 @@ options() ->
     "- 'persistent': Using persistent sets. Do not use."}
   ,{max_processes, [experimental], undefined, {integer, 20},
     "Maximum number of processes",
-    "The maximum number of processes used by your test."
-    " Concuerror will stop exploration beyond this limit."}
+    "The maximum number of processes used by your test."}
   ,{optimal, [por], undefined, boolean,
     "Synonym for `--dpor optimal (true) | source (false)`.",
     nolong}

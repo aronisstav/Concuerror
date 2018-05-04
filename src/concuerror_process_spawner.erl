@@ -91,6 +91,6 @@ stop(ProcessSpawner) ->
 
 explain_error({process_limit_exceeded, MaxProcesses}) ->
   io_lib:format(
-    "Your test is using more than ~w processes (--max_processes). Increase the"
-    " limit or consider using fewer processes.",
+    "Your test is using more than ~w processes (--max_processes)."
+    " You can specify a higher limit, but consider using fewer processes.",
     [MaxProcesses]).
