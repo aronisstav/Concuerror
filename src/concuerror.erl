@@ -38,8 +38,12 @@ start(Options, LogMsgs) ->
   Estimator = concuerror_estimator:start_link(Options),
   LoggerOptions = [{estimator, Estimator},{processes, Processes}|Options],
   Logger = concuerror_logger:start(LoggerOptions),
+  ProcessSpawner = concuerror_process_spawner:start(Options),
   _ = [?log(Logger, Level, Format, Args) || {Level, Format, Args} <- LogMsgs],
-  SchedulerOptions = [{logger, Logger}|LoggerOptions],
+  SchedulerOptions = 
+    [ {logger, Logger}
+    , {process_spawner, ProcessSpawner}
+      | LoggerOptions],
   {Pid, Ref} =
     spawn_monitor(concuerror_scheduler, run, [SchedulerOptions]),
   Reason = receive {'DOWN', Ref, process, Pid, R} -> R end,
@@ -51,8 +55,9 @@ start(Options, LogMsgs) ->
         failed
     end,
   ?trace(Logger, "Reached the end!~n",[]),
-  ExitStatus = concuerror_logger:finish(Logger, SchedulerStatus),
-  concuerror_estimator:finish(Estimator),
+  ExitStatus = concuerror_logger:stop(Logger, SchedulerStatus),
+  concuerror_estimator:stop(Estimator),
+  concuerror_process_spawner:stop(ProcessSpawner),
   ets:delete(Processes),
   ExitStatus.
 

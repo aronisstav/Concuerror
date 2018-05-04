@@ -5,6 +5,8 @@
 -export([test14/0, test16/0, test18/0, test24/0]).
 -export([scenarios/0]).
 
+-concuerror_options_forced([{max_processes, 100}]).
+
 scenarios() -> [{test, inf, dpor}].
 
 -define(NUMBLOCKS, 26).

@@ -91,6 +91,7 @@
           monitors                    :: monitors(),
           event = none                :: 'none' | event(),
           notify_when_ready           :: {pid(), boolean()},
+          process_spawner             :: pid(),
           processes                   :: processes(),
           receive_counter = 1         :: pos_integer(),
           ref_queue = new_ref_queue() :: ref_queue_2(),
@@ -120,6 +121,7 @@ spawn_first_process(Options) ->
        logger         = ?opt(logger, Options),
        monitors       = ets:new(monitors, [bag, public]),
        notify_when_ready = {self(), true},
+       process_spawner = ?opt(process_spawner, Options),
        processes      = Processes = ?opt(processes, Options),
        scheduler      = self(),
        system_ets_entries = ets:new(system_ets_entries, [bag, public]),
@@ -1433,8 +1435,10 @@ delete_system_entries({T, O}, true) ->
   ets:delete_object(T, O).
 
 new_process(ParentInfo) ->
+  #concuerror_info{process_spawner = ProcessSpawner} = ParentInfo,
   Info = ParentInfo#concuerror_info{notify_when_ready = {self(), true}},
-  spawn_link(?MODULE, process_top_loop, [Info]).
+  MFArgs = {?MODULE, process_top_loop, [Info]},
+  concuerror_process_spawner:spawn_link(ProcessSpawner, MFArgs).
 
 process_loop(#concuerror_info{delayed_notification = {true, Notification},
                               scheduler = Scheduler} = Info) ->
@@ -1540,6 +1544,7 @@ process_loop(Info) ->
       ets:match_delete(Monitors, ?monitors_match_mine()),
       FinalInfo = NewInfo#concuerror_info{ref_queue = reset_ref_queue(Info)},
       _ = notify(reset_done, FinalInfo),
+      %% This allows a clean reset to the process_top_loop
       erlang:hibernate(concuerror_callback, process_top_loop, [FinalInfo]);
     deadlock_poll ->
       ?debug_flag(?loop, deadlock_poll),
