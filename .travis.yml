@@ -5,6 +5,7 @@ language: erlang
 branches:
   only:
   - master
+  - parallel
   - /^\d+\..*/ # version tags
 
 # Two stages, so that basic tests are run first
