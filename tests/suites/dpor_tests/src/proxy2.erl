@@ -3,6 +3,8 @@
 -export([proxy2/0]).
 -export([scenarios/0]).
 
+-concuerror_options_forced([{max_processes, 150}]).
+
 scenarios() -> [{?MODULE, inf, dpor}].
 
 proxy2() ->

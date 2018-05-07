@@ -150,6 +150,9 @@ options() ->
     "                exploration is too slow. Use 'optimal' if a lot of~n"
     "                interleavings are reported as sleep-set blocked.~n"
     "- 'persistent': Using persistent sets. Do not use."}
+  ,{max_processes, [erlang], undefined, {integer, 20},
+    "Maximum number of processes",
+    "The maximum number of processes used by your test."}
   ,{optimal, [por], undefined, boolean,
     "Synonym for `--dpor optimal (true) | source (false)`.",
     nolong}
@@ -312,7 +315,8 @@ check_validity(Key) ->
       when
         Key =:= after_timeout;
         Key =:= depth_bound;
-        Key =:= print_depth
+        Key =:= print_depth;
+        Key =:= max_processes
         ->
       {fun(V) -> V > 0 end, "a positive integer"};
     dpor ->

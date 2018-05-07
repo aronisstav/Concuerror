@@ -15,6 +15,8 @@
 -export([scenarios/0]).
 -export([test/0]).
 
+-concuerror_options_forced([{max_processes, 1050}]).
+
 scenarios() ->
     [{test, inf, dpor}].
 
