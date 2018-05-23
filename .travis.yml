@@ -44,7 +44,7 @@ matrix:
     stage: basic
 
   # Check dialyzer
-  - env: TEST="make dialyze"
+  - env: TEST="make dialyzer"
     stage: basic
 
   # Minimal support for R16B03-1
@@ -81,8 +81,8 @@ otp_release:
 # Travis build steps configuration
 
 cache:
-   directories:
-   - plts
+  directories:
+  - "$HOME/.cache/rebar3"
 
 before_install:
   - .travis/before_install
@@ -92,9 +92,6 @@ before_script:
 
 script:
  - $TEST
-
-before_cache:
-  - .travis/before_cache
 
 after_success:
   - .travis/after_success
