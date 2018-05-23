@@ -5,10 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+
 ## [Unreleased](https://github.com/parapluu/Concuerror/tree/master)
 
 ### Added
 - `--max_processes` option
+
+### Removed
+
+### Changed
+- use rebar3 for building (#255)
+- a (configurable) limit for the number of processes used in a test was added (`--max_processes`)
+
+### Fixed
+
+
+## [0.19](https://github.com/parapluu/Concuerror/releases/tag/0.19) - 2018-05-21
+
+### Added
 - Total state space size and time to completion estimation
 - `--first_process_errors_only` option
 - Parts of [aronisstav/erlang-concurrency-litmus-tests](https://github.com/aronisstav/erlang-concurrency-litmus-tests) as a testsuite
@@ -20,7 +34,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - untested code for 'hijacking' processes (e.g. application_controller (#2))
 
 ### Changed
-- a (configurable) limit for the number of processes used in a test was added (`--max_processes`)
 - progress bar format
 - symbolic PIDs are now shown as "<symbol/last registered name>"
 - report shows mailbox contents when a deadlock is detected
@@ -30,6 +43,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 - handling of stacktraces
 - exclude instrumentation time from timeouts
+
 
 ## [0.18](https://github.com/parapluu/Concuerror/releases/tag/0.18) - 2018-02-20
 
@@ -46,10 +60,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 - Handling of exit_signals sent to self() (#5)
 
+
 ## [0.17](https://github.com/parapluu/Concuerror/releases/tag/0.17) - 2017-10-17
+
 
 ## [0.16](https://github.com/parapluu/Concuerror/releases/tag/0.16) - 2016-10-25
 
+
 ## [0.15](https://github.com/parapluu/Concuerror/releases/tag/0.15) - 2016-08-29
+
 
 ## [0.14](https://github.com/parapluu/Concuerror/releases/tag/0.14) - 2015-06-10
