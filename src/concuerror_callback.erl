@@ -1009,7 +1009,9 @@ run_built_in(ets, F, N, [Name|Args], Info)
     ;{F,N} =:= {select, 2}
     ;{F,N} =:= {select, 3}
     ;{F,N} =:= {select_delete, 2}
+    ;{F,N} =:= {internal_select_delete, 2}
     ;{F,N} =:= {update_counter, 3}
+    ;{F,N} =:= {whereis, 1}
     ->
   {Tid, System} = check_ets_access_rights(Name, {F,N}, Info),
   case System of
@@ -1413,7 +1415,7 @@ wrapper(InfoIn, Module, Name, Args) ->
               exit  -> Reason
             end,
           exiting(NewReason, Stacktrace, EndInfo);
-        false -> erlang:raise(Class, Reason, erlang:get_stacktrace())
+        false -> erlang:raise(Class, Reason, [])
       end
   end.
 
@@ -1776,7 +1778,9 @@ ets_ops_access_rights_map(Op) ->
     {next          ,_} -> read;
     {select        ,_} -> read;
     {select_delete ,_} -> write;
-    {update_counter,3} -> write
+    {internal_select_delete,_} -> write;
+    {update_counter,3} -> write;
+    {whereis       ,1} -> none
   end.
 
 %%------------------------------------------------------------------------------
@@ -1855,6 +1859,8 @@ system_wrapper_loop(Name, Wrapped, Info) ->
                   receive
                     Msg -> {From, Msg}
                   end;
+                logger ->
+                  throw(no_reply);
                 standard_error ->
                   #concuerror_info{logger = Logger} = Info,
                   {From, Reply, _} = handle_io(Data, {standard_error, Logger}),
@@ -1884,7 +1890,7 @@ system_wrapper_loop(Name, Wrapped, Info) ->
             no_reply -> send_message_ack(Report, false, false, false);
             Reason -> ?crash(Reason);
             Class:Reason ->
-              Stacktrace = erlang:get_stacktrace(),
+              Stacktrace = [],
               ?crash({system_wrapper_error, Name, Class, Reason, Stacktrace})
           end;
         {get_info, To} ->
