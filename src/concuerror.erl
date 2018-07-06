@@ -70,11 +70,11 @@ start(Options, LogMsgs) ->
   error_logger:tty(false),
   Processes = ets:new(processes, [public]),
   Estimator = concuerror_estimator:start_link(Options),
-  LoggerOptions = [{estimator, Estimator},{processes, Processes}|Options],
+  LoggerOptions = [{estimator, Estimator}, {processes, Processes}|Options],
   Logger = concuerror_logger:start(LoggerOptions),
   ProcessSpawner = concuerror_process_spawner:start(Options),
   _ = [?log(Logger, Level, Format, Args) || {Level, Format, Args} <- LogMsgs],
-  SchedulerOptions = 
+  SchedulerOptions =
     [ {logger, Logger}
     , {process_spawner, ProcessSpawner}
       | LoggerOptions],
@@ -88,7 +88,7 @@ start(Options, LogMsgs) ->
         ?error(Logger, "~s~n", [explain(Reason)]),
         failed
     end,
-  ?trace(Logger, "Reached the end!~n",[]),
+  ?trace(Logger, "Reached the end!~n", []),
   ExitStatus = concuerror_logger:stop(Logger, SchedulerStatus),
   concuerror_estimator:stop(Estimator),
   concuerror_process_spawner:stop(ProcessSpawner),
@@ -99,7 +99,8 @@ start(Options, LogMsgs) ->
 
 maybe_cover_compile() ->
   Cover = os:getenv("CONCUERROR_COVER"),
-  if Cover =/= false ->
+  case Cover =/= false of
+    true ->
       case cover:is_compiled(?MODULE) of
         false ->
           {ok, Modules} = application:get_key(concuerror, modules),
@@ -107,19 +108,20 @@ maybe_cover_compile() ->
           ok;
         _ -> ok
       end;
-     true -> ok
+    false -> ok
   end.
 
 %%------------------------------------------------------------------------------
 
 maybe_cover_export(Args) ->
   Cover = os:getenv("CONCUERROR_COVER"),
-  if Cover =/= false ->
+  case Cover =/= false of
+    true ->
       Hash = binary:decode_unsigned(erlang:md5(term_to_binary(Args))),
-      Out = filename:join([Cover, io_lib:format("~.16b",[Hash])]),
+      Out = filename:join([Cover, io_lib:format("~.16b", [Hash])]),
       cover:export(Out),
       ok;
-     true -> ok
+    false -> ok
   end.
 
 %%------------------------------------------------------------------------------

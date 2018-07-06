@@ -182,8 +182,9 @@ dependent(#message_event{
               not_received -> true;
               undefined -> false
             end,
-          if ObsDep -> {true, Id};
-             true -> false
+          case ObsDep of
+            true -> {true, Id};
+            false -> false
           end
       end;
     {_, _} -> Killing1 orelse Killing2 %% This is an ugly hack, see blame.
@@ -288,15 +289,25 @@ dependent_exit(Exit, MFArgs, _Extra) ->
 
 dependent_exit(_Exit, {erlang, A, _})
   when
-    A =:= exit;
-    A =:= get_stacktrace;
-    A =:= make_ref;
-    A =:= process_flag;
-    A =:= send_after;
-    A =:= spawn;
-    A =:= spawn_opt;
-    A =:= spawn_link;
-    A =:= start_timer ->
+    false
+    ;A =:= date
+    ;A =:= exit
+    ;A =:= get_stacktrace
+    ;A =:= make_ref
+    ;A =:= monotonic_time
+    ;A =:= now
+    ;A =:= process_flag
+    ;A =:= send_after
+    ;A =:= spawn
+    ;A =:= spawn_link
+    ;A =:= spawn_opt
+    ;A =:= start_timer
+    ;A =:= system_time
+    ;A =:= time
+    ;A =:= time_offset
+    ;A =:= timestamp
+    ;A =:= unique_integer
+    ->
   false;
 dependent_exit(#exit_event{},
                {_, group_leader, []}) ->
@@ -350,7 +361,7 @@ dependent_process_info(#builtin_event{mfargs = {_,_,[Pid, group_leader]}},
                        Other) ->
   case Other of
     #builtin_event{mfargs = {_,group_leader,[_, Pid]}} -> true;
-    _-> false
+    _ -> false
   end;
 dependent_process_info(#builtin_event{mfargs = {_,_,[Pid, links]}},
                        Other) ->
@@ -361,7 +372,7 @@ dependent_process_info(#builtin_event{mfargs = {_,_,[Pid, links]}},
       } when UnLink =:= link; UnLink =:= unlink -> true;
     #builtin_event{mfargs = {erlang, UnLink, Pid}}
       when UnLink =:= link; UnLink =:= unlink -> true;
-    _-> false
+    _ -> false
   end;
 dependent_process_info(#builtin_event{mfargs = {_,_,[Pid, Msg]}},
                        Other)
@@ -393,7 +404,7 @@ dependent_process_info(#builtin_event{mfargs = {_,_,[Pid, trap_exit]}},
     #builtin_event{
        actor = Pid,
        mfargs = {erlang, process_flag, [trap_exit, _]}} -> true;
-    _-> false
+    _ -> false
   end;
 dependent_process_info(#builtin_event{mfargs = {_,_,[_, Safe]}},
                        _) when
@@ -547,6 +558,10 @@ dependent_built_in(#builtin_event{},
        ReadorCancelTimer =:= cancel_timer ->
   false;
 
+dependent_built_in(#builtin_event{mfargs = {erlang, monotonic_time, _}},
+                   #builtin_event{mfargs = {erlang, monotonic_time, _}}) ->
+  true;
+
 dependent_built_in(#builtin_event{mfargs = {erlang, A, _}},
                    #builtin_event{mfargs = {erlang, B, _}})
   when
@@ -558,6 +573,7 @@ dependent_built_in(#builtin_event{mfargs = {erlang, A, _}},
     ;A =:= is_process_alive %% Depends only with an exit event
     ;A =:= make_ref         %% Depends with nothing
     ;A =:= monitor          %% Depends only with an exit event or proc_info
+    ;A =:= monotonic_time
     ;A =:= now
     ;A =:= process_flag     %% Depends only with delivery of a signal
     ;A =:= processes        %% Depends only with spawn and exit
@@ -566,7 +582,11 @@ dependent_built_in(#builtin_event{mfargs = {erlang, A, _}},
     ;A =:= spawn_link       %% Depends only with processes/0
     ;A =:= spawn_opt        %% Depends only with processes/0
     ;A =:= start_timer
+    ;A =:= system_time
     ;A =:= time
+    ;A =:= time_offset
+    ;A =:= timestamp
+    ;A =:= unique_integer
 
     ;B =:= date
     ;B =:= demonitor
@@ -575,6 +595,7 @@ dependent_built_in(#builtin_event{mfargs = {erlang, A, _}},
     ;B =:= is_process_alive
     ;B =:= make_ref
     ;B =:= monitor
+    ;B =:= monotonic_time
     ;B =:= now
     ;B =:= process_flag
     ;B =:= processes
@@ -583,7 +604,11 @@ dependent_built_in(#builtin_event{mfargs = {erlang, A, _}},
     ;B =:= spawn_link
     ;B =:= spawn_opt
     ;B =:= start_timer
+    ;B =:= system_time
     ;B =:= time
+    ;B =:= time_offset
+    ;B =:= timestamp
+    ;B =:= unique_integer
     ->
   false;
 
@@ -667,8 +692,9 @@ ets_is_mutating(#builtin_event{mfargs = {_,Op,[_|Rest] = Args}} = Event) ->
 with_key(Key) ->
   fun(Event) ->
       Keys = ets_reads_keys(Event),
-      if Keys =:= any -> true;
-         true -> lists:any(fun(K) -> K =:= Key end, Keys)
+      case Keys =:= any of
+        true -> true;
+        false -> lists:any(fun(K) -> K =:= Key end, Keys)
       end
   end.
 
