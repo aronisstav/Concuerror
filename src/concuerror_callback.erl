@@ -1097,6 +1097,7 @@ run_built_in(ets, F, N, [NameOrTid|Args], Info)
     ; {F, N} =:= {select, 3}
     ; {F, N} =:= {select_delete, 2}
     ; {F, N} =:= {update_counter, 3}
+    ; {F, N} =:= {update_element, 3}
     ->
   {Tid, Id, IsSystem} = ets_access_table_info(NameOrTid, {F, N}, Info),
   case IsSystem of
@@ -1897,6 +1898,7 @@ ets_ops_access_rights_map(Op) ->
     {select, _} -> read;
     {select_delete, 2} -> write;
     {update_counter, 3} -> write;
+    {update_element, 3} -> write;
     {whereis, 1} -> none
   end.
 
@@ -1928,11 +1930,11 @@ system_ets_entries(#concuerror_info{ets_tables = EtsTables}) ->
         [Owner, Protection] = [ets:info(Tid, F) || F <- [owner, protection]],
         ?ets_table_entry_system(Tid, Name, Protection, Owner)
     end,
-  SystemEtsEntries = [Map(Name) || Name <- ets:all(), is_atom(Name)],
+  SystemEtsEntries = [Map(Name) || Name <- [concuerror_instrumented]],%ets:all(), is_atom(Name)],
   ets:insert(EtsTables, SystemEtsEntries).
 
 system_processes_wrappers(Info) ->
-  [wrap_system(Name, Info) || Name <- registered()],
+  [wrap_system(Name, Info) || Name <- [standard_error, user]],
   ok.
 
 wrap_system(Name, Info) ->
@@ -2135,7 +2137,7 @@ get_stacktrace(Top) ->
 
 not_concuerror_module(Atom) ->
   case atom_to_list(Atom) of
-    "concuerror" ++ _ -> false;
+    "concuerror" ++ _ -> true;%false;
     _ -> true
   end.
 

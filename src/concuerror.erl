@@ -67,7 +67,7 @@ run_internal(Options) ->
 %%------------------------------------------------------------------------------
 
 start(Options, LogMsgs) ->
-  error_logger:tty(false),
+  %error_logger:tty(false),
   Processes = ets:new(processes, [public]),
   Estimator = concuerror_estimator:start_link(Options),
   LoggerOptions = [{estimator, Estimator}, {processes, Processes}|Options],
