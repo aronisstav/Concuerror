@@ -220,6 +220,8 @@
           actor = self()            :: pid() | reference(),
           last_status = running     :: running | waiting,
           exit_by_signal = false    :: boolean(),
+          links = []                :: [pid()],
+          monitors = []             :: [{reference(), pid()}],
           name = ?process_name_none :: ?process_name_none | atom(),
           reason = normal           :: term(),
           stacktrace = []           :: [term()],

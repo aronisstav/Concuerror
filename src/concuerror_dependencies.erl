@@ -335,8 +335,8 @@ dependent_exit(#exit_event{actor = Exiting},
 dependent_exit(#exit_event{actor = Exiting}, {erlang, UnLink, [Linked]})
   when UnLink =:= link; UnLink =:= unlink ->
   Exiting =:= Linked;
-dependent_exit(#exit_event{}, {erlang, demonitor, _}) ->
-  false;
+dependent_exit(#exit_event{monitors = Monitors}, {erlang, demonitor, [Ref|_]}) ->
+  false =/= lists:keyfind(Ref, 1, Monitors);
 dependent_exit(#exit_event{actor = Exiting, name = Name},
                {erlang, monitor, [process, PidOrName]}) ->
   Exiting =:= PidOrName orelse Name =:= PidOrName;
