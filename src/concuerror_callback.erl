@@ -63,6 +63,24 @@
 
 %%------------------------------------------------------------------------------
 
+-type links() :: ets:tid().
+
+-define(links(Pid1, Pid2), [{Pid1, Pid2}, {Pid2, Pid1}]).
+-define(links_pattern_mine(), {self(), '_', '_'}).
+
+%%------------------------------------------------------------------------------
+
+-type monitors() :: ets:tid().
+
+-define(monitor(Ref, Target, As, Status), {Target, {Ref, self(), As}, Status}).
+-define(monitors_pattern_mine(), {self(), '_', '_'}).
+-define(monitor_match_to_target_source_as(Ref),
+        {'$1', {Ref, '$2', '$3'}, active}).
+
+-define(monitor_status, 3).
+
+%%------------------------------------------------------------------------------
+
 %% In order to be able to keep TIDs constant and reset the system
 %% properly, Concuerror covertly hands all ETS tables to its scheduler
 %% and maintains extra info to determine operation access-rights.
@@ -397,8 +415,7 @@ run_built_in(erlang, demonitor, 2, [Ref, Options], Info) ->
         end;
       [[Target, Source, As]] ->
         ?badarg_if_not(Source =:= self()),
-        true = ets:delete_object(Monitors, ?monitor(Ref, Target, As, active)),
-        true = ets:insert(Monitors, ?monitor(Ref, Target, As, inactive)),
+        deactivate_monitor(Monitors, Ref, Target, As, active),
         {not lists:member(flush, Options), Info}
     end,
   FinalInfo = NewInfo#concuerror_info{demonitors = [Ref|Demonitors]},
@@ -482,27 +499,33 @@ run_built_in(erlang, link, 1, [Pid], Info) ->
      links = Links,
      event = #event{event_info = EventInfo}
     } = Info,
-  case run_built_in(erlang, is_process_alive, 1, [Pid], Info) of
-    {true, Info} ->
-      Self = self(),
-      true = ets:insert(Links, ?links(Self, Pid)),
+  case ets:match_object(Links, {self(), Pid}) =/= [] of
+    true ->
+      %% Link exists, do nothing
       {true, Info};
-    {false, _} ->
-      case TrapExit of
-        false -> error(noproc);
-        true ->
-          NewInfo =
-            case EventInfo of
-              %% Replaying...
-              #builtin_event{} ->
-                {_, MsgInfo} = get_message_cnt(Info),
-                MsgInfo;
-              %% New event...
-              undefined ->
-                Signal = make_exit_signal(Pid, noproc),
-                make_message(Info, message, Signal, self())
-            end,
-          {true, NewInfo}
+    false ->
+      case run_built_in(erlang, is_process_alive, 1, [Pid], Info) of
+        {true, Info} ->
+          Self = self(),
+          true = ets:insert(Links, ?links(Self, Pid)),
+          {true, Info};
+        {false, _} ->
+          case TrapExit of
+            false -> error(noproc);
+            true ->
+              NewInfo =
+                case EventInfo of
+                  %% Replaying...
+                  #builtin_event{} ->
+                    {_, MsgInfo} = get_message_cnt(Info),
+                    MsgInfo;
+                  %% New event...
+                  undefined ->
+                    Signal = make_exit_signal(Pid, noproc),
+                    make_message(Info, message, Signal, self())
+                end,
+              {true, NewInfo}
+          end
       end
   end;
 
@@ -1744,6 +1767,7 @@ exiting(Reason, Stacktrace, InfoIn) ->
   %% XXX:  - send monitor messages
   #concuerror_info{
      exit_by_signal = ExitBySignal,
+     flags = #process_flags{trap_exit = Trapping},
      logger = Logger,
      status = Status
     } = InfoIn,
@@ -1758,17 +1782,6 @@ exiting(Reason, Stacktrace, InfoIn) ->
     run_built_in(erlang, process_info, 2, [Self, registered_name], Info),
   LocatedInfo = #concuerror_info{event = Event} =
     add_location_info(exit, set_status(Info, exiting)),
-  #concuerror_info{
-     links = LinksTable,
-     monitors = MonitorsTable,
-     flags = #process_flags{trap_exit = Trapping}} = Info,
-  FetchFun =
-    fun(Table) ->
-        [begin ets:delete_object(Table, E), {D, S} end ||
-          {_, D, S} = E <- ets:lookup(Table, Self)]
-    end,
-  Links = FetchFun(LinksTable),
-  Monitors = FetchFun(MonitorsTable),
   Name =
     case MaybeName of
       [] -> ?process_name_none;
@@ -1780,20 +1793,19 @@ exiting(Reason, Stacktrace, InfoIn) ->
         #exit_event{
            exit_by_signal = ExitBySignal,
            last_status = Status,
-           links = [L || {L, _} <- Links],
-           monitors = [M || {M, _} <- Monitors],
            name = Name,
            reason = Reason,
            stacktrace = Stacktrace,
            trapping = Trapping
           }
      },
-  ExitInfo = add_location_info(exit, notify(Notification, LocatedInfo)),
+  ExitInfo = notify(Notification, LocatedInfo),
   FunFold = fun(Fun, Acc) -> Fun(Acc) end,
   FunList =
-    [fun ets_ownership_exiting_events/1,
-     link_monitor_handlers(fun handle_link/3, Links),
-     link_monitor_handlers(fun handle_monitor/3, Monitors)],
+    [ fun ets_ownership_exiting_events/1
+    , fun handle_links/1
+    , fun handle_monitors/1
+    ],
   NewInfo = ExitInfo#concuerror_info{exit_reason = Reason},
   FinalInfo = lists:foldl(FunFold, NewInfo, FunList),
   ?debug_flag(?loop, exited),
@@ -1832,30 +1844,39 @@ ets_ownership_exiting_events(Info) ->
       lists:foldl(Fold, Info, Tables)
   end.
 
-handle_link(Link, Reason, InfoIn) ->
-  MFArgs = [erlang, exit, [Link, Reason]],
-  {{didit, true}, NewInfo} =
-    instrumented(call, MFArgs, exit, InfoIn),
-  NewInfo.
+handle_links(Info) ->
+  #concuerror_info{
+     exit_reason = Reason,
+     links = Links
+    } = Info,
+  Self = self(),
+  case ets:lookup(Links, Self) of
+    [] -> Info;
+    Objects ->
+      [{Self, Linked}|_] = lists:sort(Objects),
+      Signal = make_exit_signal(Reason),
+      NewInfo = make_message(Info, exit_signal, Signal, Linked),
+      {{didit, true}, FinalInfo} =
+        instrumented(call, [erlang, unlink, [Linked]], exit, NewInfo),
+      handle_links(FinalInfo)
+  end.
 
-handle_monitor({Ref, P, As}, Reason, InfoIn) ->
-  Msg = {'DOWN', Ref, process, As, Reason},
-  MFArgs = [erlang, send, [P, Msg]],
-  {{didit, Msg}, NewInfo} =
-    instrumented(call, MFArgs, exit, InfoIn),
-  NewInfo.
-
-link_monitor_handlers(Handler, LinksOrMonitors) ->
-  fun(Info) ->
-      #concuerror_info{exit_reason = Reason} = Info,
-      HandleActive =
-        fun({LinkOrMonitor, S}, InfoIn) ->
-            case S =:= active of
-              true -> Handler(LinkOrMonitor, Reason, InfoIn);
-              false -> InfoIn
-            end
-        end,
-      lists:foldl(HandleActive, Info, LinksOrMonitors)
+handle_monitors(Info) ->
+  #concuerror_info{
+     exit_reason = Reason,
+     links = Monitors
+    } = Info,
+  Self = self(),
+  case ets:lookup(Monitors, Self) of
+    [] -> Info;
+    Objects ->
+      [{Self, {Ref, P, As}, Status}|_] = lists:sort(Objects),
+      deactivate_monitor(Monitors, Ref, P, As, Status),
+      Msg = {'DOWN', Ref, process, As, Reason},
+      MFArgs = [erlang, send, [P, Msg]],
+      {{didit, Msg}, NewInfo} =
+        instrumented(call, MFArgs, exit, Info),
+      handle_monitors(NewInfo)
   end.
 
 %%------------------------------------------------------------------------------
@@ -2152,6 +2173,10 @@ get_message_cnt(#concuerror_info{message_counter = Counter} = Info) ->
 
 get_receive_cnt(#concuerror_info{receive_counter = Counter} = Info) ->
   {Counter, Info#concuerror_info{receive_counter = Counter + 1}}.
+
+deactivate_monitor(Monitors, Ref, P, As, Status) ->
+  true = ets:delete_object(Monitors, ?monitor(Ref, P, As, Status)),
+  true = ets:insert(Monitors, ?monitor(Ref, P, As, inactive)).
 
 %%------------------------------------------------------------------------------
 
