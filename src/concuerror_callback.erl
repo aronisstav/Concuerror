@@ -1864,14 +1864,14 @@ handle_links(Info) ->
 handle_monitors(Info) ->
   #concuerror_info{
      exit_reason = Reason,
-     links = Monitors
+     monitors = Monitors
     } = Info,
   Self = self(),
   case ets:lookup(Monitors, Self) of
     [] -> Info;
     Objects ->
-      [{Self, {Ref, P, As}, Status}|_] = lists:sort(Objects),
-      deactivate_monitor(Monitors, Ref, P, As, Status),
+      [{Self, {Ref, P, As}, _} = MonitorInfo|_] = lists:sort(Objects),
+      true = ets:delete_object(Monitors, MonitorInfo),
       Msg = {'DOWN', Ref, process, As, Reason},
       MFArgs = [erlang, send, [P, Msg]],
       {{didit, Msg}, NewInfo} =

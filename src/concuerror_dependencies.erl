@@ -328,8 +328,11 @@ dependent_exit(#exit_event{actor = Exiting},
 dependent_exit(#exit_event{actor = Exiting},
                {erlang, process_info, [Pid|_]}) ->
   Exiting =:= Pid;
-dependent_exit(#exit_event{actor = Exiting}, {erlang, link, [Linked]}) ->
+dependent_exit(#exit_event{actor = Exiting}, {erlang, UnLink, [Linked]})
+  when UnLink =:= link; UnLink =:= unlink ->
   Exiting =:= Linked;
+dependent_exit(#exit_event{}, {erlang, demonitor, _}) ->
+  false;
 dependent_exit(#exit_event{actor = Exiting, name = Name},
                {erlang, monitor, [process, PidOrName]}) ->
   Exiting =:= PidOrName orelse Name =:= PidOrName;
