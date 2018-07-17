@@ -962,10 +962,21 @@ run_built_in(erlang, processes, 0, [], Info) ->
   {Active, Info};
 
 run_built_in(erlang, unlink, 1, [Pid], Info) ->
-  #concuerror_info{links = Links} = Info,
+  #concuerror_info{
+     event = Event,
+     links = Links
+    } = Info,
+  NewInfo =
+    case Event#event.location =/= exit of
+      true -> Info;
+      false ->
+        #concuerror_info{exit_reason = Reason} = Info,
+        {true, NI} = run_built_in(erlang, exit, 2, [Pid, Reason], Info),
+        NI
+    end,
   Self = self(),
   [true, true] = [ets:delete_object(Links, L) || L <- ?links(Self, Pid)],
-  {true, Info};
+  {true, NewInfo};
 run_built_in(erlang, unregister, 1, [Name],
              #concuerror_info{processes = Processes} = Info) ->
   try
@@ -1845,20 +1856,15 @@ ets_ownership_exiting_events(Info) ->
   end.
 
 handle_links(Info) ->
-  #concuerror_info{
-     exit_reason = Reason,
-     links = Links
-    } = Info,
+  #concuerror_info{links = Links} = Info,
   Self = self(),
   case ets:lookup(Links, Self) of
     [] -> Info;
     Objects ->
       [{Self, Linked}|_] = lists:sort(Objects),
-      Signal = make_exit_signal(Reason),
-      NewInfo = make_message(Info, exit_signal, Signal, Linked),
-      {{didit, true}, FinalInfo} =
-        instrumented(call, [erlang, unlink, [Linked]], exit, NewInfo),
-      handle_links(FinalInfo)
+      {{didit, true}, NewInfo} =
+        instrumented(call, [erlang, unlink, [Linked]], exit, Info),
+      handle_links(NewInfo)
   end.
 
 handle_monitors(Info) ->
@@ -1874,8 +1880,7 @@ handle_monitors(Info) ->
       true = ets:delete_object(Monitors, MonitorInfo),
       Msg = {'DOWN', Ref, process, As, Reason},
       MFArgs = [erlang, send, [P, Msg]],
-      {{didit, Msg}, NewInfo} =
-        instrumented(call, MFArgs, exit, Info),
+      {{didit, Msg}, NewInfo} = instrumented(call, MFArgs, exit, Info),
       handle_monitors(NewInfo)
   end.
 
