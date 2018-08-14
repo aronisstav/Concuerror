@@ -1,0 +1,2 @@
+Done at 14 Aug 2018 10:51:14 (Exit status: ok)
+  Summary: 0 errors, 3/3 interleavings explored
