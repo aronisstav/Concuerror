@@ -134,7 +134,9 @@ pretty_info(#exit_event{reason = Reason}, Depth) ->
       true -> "normally";
       false -> io_lib:format("abnormally (~W)", [Reason, Depth])
     end,
-  io_lib:format("exits ~s", [ReasonStr]);
+  io_lib:format("starts exiting ~s", [ReasonStr]);
+pretty_info(final_event, _Depth) ->
+  "finishes exiting";
 pretty_info(#message_event{} = MessageEvent, Depth) ->
   #message_event{
      message = #message{data = Data},

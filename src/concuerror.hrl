@@ -231,6 +231,7 @@
 -type exit_event() :: #exit_event{}.
 
 -type event_info() ::
+        'final_event'   |
         builtin_event() |
         exit_event()    |
         message_event() |

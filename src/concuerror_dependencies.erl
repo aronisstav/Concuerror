@@ -68,6 +68,11 @@ dependent(#builtin_event{status = {crashed, _}},
           #builtin_event{status = {crashed, _}}) ->
   false;
 
+dependent(_, final_event) ->
+  false;
+dependent(final_event, _) ->
+  false;
+
 dependent(#builtin_event{mfargs = MFArgs, extra = Extra},
           #exit_event{} = Exit) ->
   dependent_exit(Exit, MFArgs, Extra);

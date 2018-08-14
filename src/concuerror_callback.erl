@@ -1824,7 +1824,13 @@ exiting(Reason, Stacktrace, InfoIn) ->
      link_monitor_handlers(fun handle_link/3, Links),
      link_monitor_handlers(fun handle_monitor/3, Monitors)],
   NewInfo = ExitInfo#concuerror_info{exit_reason = Reason},
-  FinalInfo = lists:foldl(FunFold, NewInfo, FunList),
+  ExitCompleteInfo = #concuerror_info{event = FinalEvent} =
+    process_loop(lists:foldl(FunFold, NewInfo, FunList)),
+  FinalNotification =
+    FinalEvent#event{
+      event_info = final_event
+     },
+  FinalInfo = notify(FinalNotification, ExitCompleteInfo),
   ?debug_flag(?loop, exited),
   process_loop(set_status(FinalInfo, exited)).
 
