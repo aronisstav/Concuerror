@@ -5,13 +5,29 @@
 
 -module(concuerror_logger).
 
--export([start/1, complete/2, plan/1, log/5, race/3, stop/2, print/3, time/2]).
--export([bound_reached/1, set_verbosity/2]).
--export([graph_set_node/3, graph_new_node/4, graph_race/3]).
--export([print_log_message/3]).
--export([showing_progress/1, progress_help/0]).
+-export(
+   [ bound_reached/1
+   , complete/2
+   , graph_new_node/4
+   , graph_race/3
+   , graph_set_node/3
+   , log/5
+   , plan/1
+   , print/3
+   , print_log_message/3
+   , progress_help/0
+   , race/3
+   , set_verbosity/2
+   , showing_progress/1
+   , start_link/1
+   , stop/2
+   , time/2
+   ]).
 
--export_type([logger/0, log_level/0]).
+-export_type(
+   [ log_level/0
+   , logger/0
+   ]).
 
 %%------------------------------------------------------------------------------
 
@@ -95,9 +111,9 @@ timediff(After, Before) ->
 
 %%------------------------------------------------------------------------------
 
--spec start(concuerror_options:options()) -> pid().
+-spec start_link(concuerror_options:options()) -> pid().
 
-start(Options) ->
+start_link(Options) ->
   Parent = self(),
   Ref = make_ref(),
   Fun =
