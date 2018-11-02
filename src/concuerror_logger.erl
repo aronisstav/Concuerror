@@ -17,6 +17,7 @@
    , print_log_message/3
    , progress_help/0
    , race/3
+   , set_scheduler_monitor/1
    , set_verbosity/2
    , showing_progress/1
    , start_link/1
@@ -99,6 +100,9 @@ timediff(After, Before) ->
           output_name                  :: string(),
           print_depth                  :: pos_integer(),
           rate_info = init_rate_info() :: #rate_info{},
+          %% Used to ensure that we have received all scheduler
+          %% messages before stopping.
+          scheduler_monitor :: 'undefined' | reference() | 'received',
           streams = []                 :: [{stream(), [string()]}],
           timestamp = timestamp()      :: timestamp(),
           ticker = none                :: pid() | 'none',
@@ -203,6 +207,26 @@ bound_reached(Logger) ->
   Logger ! bound_reached,
   ok.
 
+%% @doc This makes the logger monitor the scheduler in order to know
+%% when all messages have been delivered. This is to prevent a race
+%% condition where:
+%%
+%% 1. The scheduler sends messages to the logger and crashes
+%% 2. The top process (that is monitoring the scheduler) receives sched DOWN
+%% 3. The top process sends a stop message to the logger
+%% 4. The logger terminates
+%% 5. The messages of the scheduler are finally delivered to the logger
+%%
+%% See {@link loop/1} for the handling.
+-spec set_scheduler_monitor(logger()) -> ok.
+
+set_scheduler_monitor(Logger) ->
+  Ref = make_ref(),
+  Logger ! {set_scheduler_monitor, self(), Ref},
+  receive
+    Ref -> ok
+  end.
+
 -spec plan(logger()) -> ok.
 
 plan(Logger) ->
@@ -270,18 +294,32 @@ showing_progress(Verbosity) ->
 
 %%------------------------------------------------------------------------------
 
+loop(#logger_state{scheduler_monitor = SchedulerMonitor} = State)
+  when is_reference(SchedulerMonitor) ->
+  receive
+    {'DOWN', SchedulerMonitor, process, _, _} ->
+      NewState = State#logger_state{scheduler_monitor = received},
+      loop(NewState);
+    {stop, _, _} = Stop ->
+      %% Wait until the scheduler has delivered all its messages to the logger.
+      %% (the monitor will be the last message).
+      receive
+        {'DOWN', SchedulerMonitor, process, _, _} = Down ->
+          self() ! Down,
+          self() ! Stop,
+          loop(State)
+      end;
+    Message -> loop(Message, State)
+  end;
 loop(State) ->
-  Message =
-    receive
-      {stop, _, _} = Stop ->
-        receive
-          M -> self() ! Stop, M
-        after
-          0 -> Stop
-        end;
-      M -> M
-    end,
-  loop(Message, State).
+  receive
+    {set_scheduler_monitor, Scheduler, Ref} ->
+      NewSchedulerMonitor = monitor(process, Scheduler),
+      NewState = State#logger_state{scheduler_monitor = NewSchedulerMonitor},
+      Scheduler ! Ref,
+      loop(NewState);
+    Message -> loop(Message, State)
+  end.
 
 loop(Message,
      #logger_state{

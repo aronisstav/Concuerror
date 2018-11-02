@@ -176,6 +176,7 @@ run(Options) ->
        unique_id = {1, 1}
       },
   Logger = ?opt(logger, Options),
+  concuerror_logger:set_scheduler_monitor(Logger),
   {SchedulingBoundType, UnsoundBPOR} =
     case ?opt(scheduling_bound_type, Options) of
       ubpor -> {bpor, true};
