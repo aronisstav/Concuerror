@@ -163,6 +163,8 @@ is_unsafe({erlang, exit, 2}) ->
   true;
 is_unsafe({erlang, pid_to_list, 1}) ->
   true; %% Instrumented for symbolic PIDs pretty printing.
+is_unsafe({erlang, fun_to_list, 1}) ->
+  true; %% Instrumented for fun pretty printing.
 is_unsafe({erlang, F, A}) ->
   case
     (erl_internal:guard_bif(F, A)
@@ -177,6 +179,8 @@ is_unsafe({erlang, F, A}) ->
       StringF = atom_to_list(F),
       not erl_safe(StringF)
   end;
+is_unsafe({erts_internal, garbage_collect, _}) ->
+  false;
 is_unsafe({Safe, _, _})
   when
     Safe =:= binary
@@ -228,7 +232,6 @@ erl_safe("fun_info"              ++ _) -> true;
 erl_safe("function_exported"         ) -> true;
 erl_safe("garbage_collect"           ) -> true;
 erl_safe("get_module_info"           ) -> true;
-erl_safe("hash"                      ) -> true;
 erl_safe("hibernate"                 ) -> false; %% Must be instrumented.
 erl_safe("insert_element"            ) -> true;
 erl_safe("iolist_size"               ) -> true;

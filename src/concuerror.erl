@@ -130,7 +130,7 @@ run_internal(Options) ->
 version() ->
   _ = application:load(concuerror),
   {ok, Vsn} = application:get_key(concuerror, vsn),
-  io_lib:format("Concuerror v~s", [Vsn]).
+  io_lib:format("Concuerror ~s", [Vsn]).
 
 %%------------------------------------------------------------------------------
 
@@ -181,8 +181,9 @@ start(Options, LogMsgs) ->
 
 maybe_cover_compile() ->
   Cover = os:getenv("CONCUERROR_COVER"),
-  case Cover =/= false of
+  case get(concuerror_cover) =:= undefined andalso Cover =/= false of
     true ->
+      put(concuerror_cover, Cover),
       case cover:is_compiled(?MODULE) of
         false ->
           {ok, Modules} = application:get_key(concuerror, modules),
@@ -196,8 +197,8 @@ maybe_cover_compile() ->
 %%------------------------------------------------------------------------------
 
 maybe_cover_export(Args) ->
-  Cover = os:getenv("CONCUERROR_COVER"),
-  case Cover =/= false of
+  Cover = erase(concuerror_cover),
+  case Cover =/= undefined of
     true ->
       Hash = binary:decode_unsigned(erlang:md5(term_to_binary(Args))),
       Out = filename:join([Cover, io_lib:format("~.16b", [Hash])]),

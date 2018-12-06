@@ -14,18 +14,27 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased](https://github.com/parapluu/Concuerror/tree/master)
 
 ### Added
+
+### Removed
+
+### Changed
+- handling of demonitors (#281)
+- handling of process_info(..., messages) (#283)
+
+### Fixed
+- fixed stacktrace information (#276)
+
+## [0.20](https://github.com/parapluu/Concuerror/releases/tag/0.20) - 2018-07-15
+
+### Added
 - edoc documentation (#274)
 - support for OTP 21.0 (#264)
 - style checking by Elvis (#266)
 - base infrastructure for EUnit tests (and CT eventually) (#263)
 
-### Removed
-
 ### Changed
 - use rebar3 for building (#255)
 - a (configurable) limit for the number of processes used in a test was added (`--max_processes`)
-
-### Fixed
 
 
 ## [0.19](https://github.com/parapluu/Concuerror/releases/tag/0.19) - 2018-05-21

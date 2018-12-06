@@ -11,12 +11,13 @@
 -export([print_log_message/3]).
 -export([showing_progress/1, progress_help/0]).
 
--export_type([log_level/0]).
+-export_type([logger/0, log_level/0]).
 
 %%------------------------------------------------------------------------------
 
 -include("concuerror.hrl").
 
+-type logger() :: pid().
 -type log_level() :: 0..7.
 
 -define(TICKER_TIMEOUT, 500).
@@ -687,8 +688,8 @@ progress_content(State) ->
     } = State,
   Planned = TracesTotal - TracesExplored,
   {Rate, NewRateInfo} = update_rate(RateInfo, TracesExplored),
-  EstimatedTotal =
-    max(concuerror_estimator:get_estimation(Estimator), TracesTotal),
+  Estimation = concuerror_estimator:get_estimation(Estimator),
+  EstimatedTotal = sanitize_estimation(Estimation, TracesTotal),
   ErrorsStr =
     case Errors of
       0 -> "none";
@@ -777,6 +778,18 @@ update_rate(RateInfo, TracesExplored) ->
       timestamp = New
      },
   {Rate, NewRateInfo}.
+
+sanitize_estimation(Estimation, _)
+  when not is_number(Estimation) -> Estimation;
+sanitize_estimation(Estimation, TracesTotal) ->
+  EstSignificant = two_significant(Estimation),
+  case EstSignificant > TracesTotal of
+    true -> EstSignificant;
+    false -> two_significant(TracesTotal)
+  end.
+
+two_significant(Number) when Number < 100 -> Number + 1;
+two_significant(Number) -> 10 * two_significant(Number div 10).
 
 %%------------------------------------------------------------------------------
 
@@ -997,11 +1010,10 @@ approximate_time_formatters() ->
 %%------------------------------------------------------------------------------
 
 add_seps_to_int(Integer) when Integer < 1000 -> integer_to_list(Integer);
-add_seps_to_int(Integer) when is_integer(Integer) ->
+add_seps_to_int(Integer) ->
   Rem = Integer rem 1000,
   DivS = add_seps_to_int(Integer div 1000),
-  io_lib:format("~s ~3..0w", [DivS, Rem]);
-add_seps_to_int(Other) -> io_lib:format("~w", [Other]).
+  io_lib:format("~s ~3..0w", [DivS, Rem]).
 
 %%------------------------------------------------------------------------------
 

@@ -8,10 +8,10 @@ branches:
   - /parallel.*/
   - /^\d+\..*/ # version tags
 
-# Two stages, so that basic tests are run first
 stages:
   - basic
   - test
+  - website
 
 matrix:
   fast_finish: true
@@ -25,18 +25,13 @@ matrix:
   include:
 
   # When otp_release is unspecified, the first value in the corresponding
-  # list below will be used
+  # list further down in this file will be used
 
   # Check that the latest Erlang version is tested
-
-  # This test will fail with 'X' when a new version is available via kerl.
-  # At that point, update THIS test's otp_release to the new one.
-  # The test will keep failing with '!', until Travis has the new version.
-  # When the test starts failing with 'X' again, Travis has the new version.
-  # At that point, update otp_release in the corresponding list below
-
+  # See the warning printed by the script to understand why this test
+  # has a separate otp_release specification.
   - env: TEST=".travis/travis_has_latest_otp_version"
-    otp_release: 21.0
+    otp_release: 21.1
     stage: basic
 
   # Check dialyzer
@@ -47,22 +42,26 @@ matrix:
   - env: TEST="make lint"
     stage: basic
 
+  # FLAG is used by Codecov reporter (.travis/after_success)
+  - env: TEST="make tests-unit" FLAG="unit_tests"
+    stage: basic
+
   # Test documentation
   - env: TEST="make -C doc test"
     stage: basic
 
   # Minimal support for R16B03-1
-  - env: TEST=".travis/script tests-real"
+  - env: TEST="make tests-real"
     otp_release: R16B03-1
     stage: test
 
   # Test website
   - env: TEST="make -C docs test"
-    stage: test
+    stage: website
 
   # Test external links separately, cause they can break unexpectedly
   - env: TEST="make -C docs test-external"
-    stage: test
+    stage: website
     addons:
       apt:
         packages:
@@ -71,16 +70,18 @@ matrix:
 env:
 
   # FLAG is used by Codecov reporter (.travis/after_success)
-  - TEST=".travis/script tests" FLAG="tests"
-  - TEST=".travis/script tests-real" FLAG="tests_real"
-  - TEST=".travis/script tests-unit" FLAG="unit_tests"
+  - TEST=".travis/maybe_cover make tests" FLAG="tests"
+  - TEST=".travis/maybe_cover make tests-real" FLAG="tests_real"
 
 otp_release:
 
-  # Two latest minor versions of the most recent OTP release
-  # Remember to also update the badge in README.md and the used
-  # as argument to generate_version_hrl in rebar.config
+  # Two latest minor versions of the most recent OTP release.
 
+  # When a new major OTP release is enabled, also update the badge in
+  # README.md and the argument given to generate_version_hrl in
+  # rebar.config
+
+  - 21.1
   - 21.0
 
   # Last minor version of older OTP releases

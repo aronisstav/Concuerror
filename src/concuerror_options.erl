@@ -50,7 +50,6 @@
 %%%       A list of Options that can be overriden by other options.
 %%%     </dd>
 %%%   <dt>`-concuerror_options_forced(Options)'</dt>
-%%%   <dt>`error' (exit status: <em>1</em>)</dt>
 %%%     <dd>
 %%%       A list of Options that override any other options.
 %%%     </dd>
@@ -1042,7 +1041,7 @@ check_validity(Key) ->
 %%
 %% This function also augments the interface of getopt, allowing
 %% <ul>
-%%   <li> {@section multiple arguments} to options</li>
+%%   <li> {@section Multiple Arguments} to options</li>
 %%   <li> correction of common errors</li>
 %% </ul>
 

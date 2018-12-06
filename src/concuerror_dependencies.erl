@@ -3,9 +3,13 @@
 
 -export([dependent/3, dependent_safe/2, explain_error/1]).
 
+-export_type([assume_racing_opt/0]).
+
 %%------------------------------------------------------------------------------
 
 -include("concuerror.hrl").
+
+-type assume_racing_opt() :: {boolean(), concuerror_logger:logger() | 'ignore'}.
 
 %%------------------------------------------------------------------------------
 
@@ -96,17 +100,21 @@ dependent(#builtin_event{actor = Recipient, exiting = false,
         not Trapping andalso Reason =/= normal
     end;
 dependent(#builtin_event{actor = Recipient,
-                         mfargs = {erlang, demonitor, [R, Opts]}},
-          #message_event{message = #message{data = {_, R, _, _, _}},
+                         mfargs = {erlang, demonitor, [R|Rest]}
+                        },
+          #message_event{message = #message{data = {'DOWN', R, _, _, _}},
                          recipient = Recipient, type = message}) ->
-  is_list(Opts)
-    andalso
-      ([] =:= [O || O <- Opts, O =/= info, O =/= flush])
-    andalso
-    case {lists:member(flush, Opts), lists:member(info, Opts)} of
-      {true, false} -> throw(irreversible);
-      {    _,    _} -> true
-    end;
+  Options = case Rest of [] -> []; [O] -> O end,
+  try
+    [] = [O || O <- Options, O =/= flush, O =/= info],
+    {lists:member(flush, Options), lists:member(info, Options)}
+  of
+    {true, false} -> false; %% Message will be discarded either way
+    {true, true} -> true; %% Result is affected by the message being flushed
+    {false, _} -> true %% Message is discarded upon delivery or not
+  catch
+    _:_ -> false
+  end;
 dependent(#builtin_event{}, #message_event{}) ->
   false;
 dependent(#message_event{} = Message,
@@ -119,7 +127,6 @@ dependent(#exit_event{
              last_status = LastStatus,
              trapping = Trapping},
           #message_event{
-             ignored = false,
              killing = Killing,
              message = #message{data = Signal},
              recipient = Recipient,
@@ -148,7 +155,6 @@ dependent(#exit_event{}, #exit_event{}) ->
   false;
 
 dependent(#message_event{
-             ignored = false,
              killing = Killing1,
              message = #message{id = Id, data = EarlyData},
              receive_info = EarlyInfo,
@@ -156,7 +162,6 @@ dependent(#message_event{
              trapping = Trapping,
              type = EarlyType},
           #message_event{
-             ignored = false,
              killing = Killing2,
              message = #message{data = Data},
              receive_info = LateInfo,
@@ -192,7 +197,6 @@ dependent(#message_event{
   end;
 
 dependent(#message_event{
-             ignored = false,
              message = #message{data = Data, id = MsgId},
              recipient = Recipient,
              type = Type
@@ -236,21 +240,27 @@ dependent(#message_event{
   end;
 dependent(#receive_event{
              message = 'after',
-             receive_info = {_,  Patterns},
+             receive_info = {RecCounter, Patterns},
              recipient = Recipient,
              trapping = Trapping},
           #message_event{
-             ignored = false,
              message = #message{data = Data},
+             receive_info = LateInfo,
              recipient = Recipient,
              type = Type
             }) ->
-  message_could_match(Patterns, Data, Trapping, Type);
+  case LateInfo of
+    {Counter, _} ->
+      %% The message might have been discarded before the receive.
+      Counter >= RecCounter;
+    _ -> true
+  end
+    andalso
+    message_could_match(Patterns, Data, Trapping, Type);
 dependent(#receive_event{
              recipient = Recipient,
              trapping = Trapping},
           #message_event{
-             ignored = false,
              message = #message{data = Signal},
              recipient = Recipient,
              type = exit_signal
@@ -295,6 +305,7 @@ dependent_exit(_Exit, {erlang, A, _})
     ;A =:= exit
     ;A =:= get_stacktrace
     ;A =:= make_ref
+    ;A =:= module_loaded
     ;A =:= monotonic_time
     ;A =:= now
     ;A =:= process_flag
@@ -331,8 +342,20 @@ dependent_exit(#exit_event{actor = Exiting},
 dependent_exit(#exit_event{actor = Exiting}, {erlang, UnLink, [Linked]})
   when UnLink =:= link; UnLink =:= unlink ->
   Exiting =:= Linked;
-dependent_exit(#exit_event{monitors = Monitors}, {erlang, demonitor, [Ref|_]}) ->
-  false =/= lists:keyfind(Ref, 1, Monitors);
+dependent_exit(#exit_event{monitors = Monitors},
+               {erlang, demonitor, [Ref|Rest]}) ->
+  Options = case Rest of [] -> []; [O] -> O end,
+  try
+    [] = [O || O <- Options, O =/= flush, O =/= info],
+    {lists:member(flush, Options), lists:member(info, Options)}
+  of
+    {false, true} ->
+      %% Result is whether monitor has been emitted
+      false =/= lists:keyfind(Ref, 1, Monitors);
+    {_, _} -> false
+  catch
+    _:_ -> false
+  end;
 dependent_exit(#exit_event{actor = Exiting, name = Name},
                {erlang, monitor, [process, PidOrName]}) ->
   Exiting =:= PidOrName orelse Name =:= PidOrName;
@@ -371,18 +394,21 @@ dependent_process_info(#builtin_event{mfargs = {_,_,[Pid, links]}},
        actor = Pid,
        mfargs = {erlang, UnLink, _}
       } when UnLink =:= link; UnLink =:= unlink -> true;
-    #builtin_event{mfargs = {erlang, UnLink, Pid}}
+    #builtin_event{mfargs = {erlang, UnLink, [Pid]}}
       when UnLink =:= link; UnLink =:= unlink -> true;
     _ -> false
   end;
-dependent_process_info(#builtin_event{mfargs = {_,_,[Pid, Msg]}},
-                       Other)
-  when Msg =:= messages; Msg =:= message_queue_len ->
+dependent_process_info(#builtin_event{mfargs = {_,_,[Pid, message_queue_len]}},
+                       Other) ->
   case Other of
-    #message_event{ignored = false, recipient = Recipient} ->
+    #message_event{recipient = Recipient} ->
       Recipient =:= Pid;
     #receive_event{recipient = Recipient, message = M} ->
       Recipient =:= Pid andalso M =/= 'after';
+    #builtin_event{actor = Recipient, mfargs = {M, F, [_, Args]}} ->
+      Recipient =:= Pid andalso
+        {M, F} =:= {erlang, demonitor} andalso
+        try lists:member(flush, Args) catch _:_ -> false end;
     _ -> false
   end;
 dependent_process_info(#builtin_event{mfargs = {_, _, [Pid, registered_name]}},
@@ -413,6 +439,7 @@ dependent_process_info(#builtin_event{mfargs = {_,_,[_, Safe]}},
     Safe =:= current_stacktrace;
     Safe =:= dictionary;
     Safe =:= heap_size;
+    Safe =:= messages; %% If fixed, it should be an observer of message races
     Safe =:= reductions;
     Safe =:= stack_size;
     Safe =:= status
@@ -563,55 +590,26 @@ dependent_built_in(#builtin_event{mfargs = {erlang, monotonic_time, _}},
                    #builtin_event{mfargs = {erlang, monotonic_time, _}}) ->
   true;
 
-dependent_built_in(#builtin_event{mfargs = {erlang, A, _}},
-                   #builtin_event{mfargs = {erlang, B, _}})
-  when
-    false
-    ;A =:= date
-    ;A =:= demonitor        %% Depends only with an exit event or proc_info
-    ;A =:= exit             %% Sending an exit signal (dependencies are on delivery)
-    ;A =:= get_stacktrace   %% Depends with nothing
-    ;A =:= is_process_alive %% Depends only with an exit event
-    ;A =:= make_ref         %% Depends with nothing
-    ;A =:= monitor          %% Depends only with an exit event or proc_info
-    ;A =:= monotonic_time
-    ;A =:= now
-    ;A =:= process_flag     %% Depends only with delivery of a signal
-    ;A =:= processes        %% Depends only with spawn and exit
-    ;A =:= send_after
-    ;A =:= spawn            %% Depends only with processes/0
-    ;A =:= spawn_link       %% Depends only with processes/0
-    ;A =:= spawn_opt        %% Depends only with processes/0
-    ;A =:= start_timer
-    ;A =:= system_time
-    ;A =:= time
-    ;A =:= time_offset
-    ;A =:= timestamp
-    ;A =:= unique_integer
-
-    ;B =:= date
-    ;B =:= demonitor
-    ;B =:= exit
-    ;B =:= get_stacktrace
-    ;B =:= is_process_alive
-    ;B =:= make_ref
-    ;B =:= monitor
-    ;B =:= monotonic_time
-    ;B =:= now
-    ;B =:= process_flag
-    ;B =:= processes
-    ;B =:= send_after
-    ;B =:= spawn
-    ;B =:= spawn_link
-    ;B =:= spawn_opt
-    ;B =:= start_timer
-    ;B =:= system_time
-    ;B =:= time
-    ;B =:= time_offset
-    ;B =:= timestamp
-    ;B =:= unique_integer
-    ->
+dependent_built_in(#builtin_event{mfargs = {erlang, _, _}},
+                   #builtin_event{mfargs = {ets, _, _}}) ->
   false;
+dependent_built_in(#builtin_event{mfargs = {ets, _, _}} = Ets,
+                   #builtin_event{mfargs = {erlang, _, _}} = Erlang) ->
+  dependent_built_in(Erlang, Ets);
+
+dependent_built_in(#builtin_event{mfargs = {MaybeErlangA, A, _}},
+                   #builtin_event{mfargs = {MaybeErlangB, B, _}})
+  when
+    MaybeErlangA =:= erlang;
+    MaybeErlangB =:= erlang
+    ->
+  MaybeSafeErlangA = MaybeErlangA =:= erlang andalso safe_erlang(A),
+  MaybeSafeErlangB = MaybeErlangB =:= erlang andalso safe_erlang(B),
+  case {MaybeSafeErlangA, MaybeSafeErlangB} of
+    {true, _} -> false;
+    {_, true} -> false;
+    {_, _} -> error(function_clause)
+  end;
 
 %%------------------------------------------------------------------------------
 
@@ -658,14 +656,39 @@ dependent_built_in(#builtin_event{ mfargs = {ets, _, [TableA|_]}
           Pred -> Pred(EventA)
         end;
       Pred -> Pred(EventB)
-    end;
+    end.
 
-dependent_built_in(#builtin_event{mfargs = {erlang, _, _}},
-                   #builtin_event{mfargs = {ets, _, _}}) ->
-  false;
-dependent_built_in(#builtin_event{mfargs = {ets, _, _}} = Ets,
-                   #builtin_event{mfargs = {erlang, _, _}} = Erlang) ->
-  dependent_built_in(Erlang, Ets).
+%%------------------------------------------------------------------------------
+
+safe_erlang(A)
+  when
+    false
+    ;A =:= date
+    ;A =:= demonitor        %% Depends only with an exit event or proc_info
+    ;A =:= exit             %% Sending an exit signal (dependencies are on delivery)
+    ;A =:= get_stacktrace   %% Depends with nothing
+    ;A =:= is_process_alive %% Depends only with an exit event
+    ;A =:= make_ref         %% Depends with nothing
+    ;A =:= module_loaded
+    ;A =:= monitor          %% Depends only with an exit event or proc_info
+    ;A =:= monotonic_time
+    ;A =:= now
+    ;A =:= process_flag     %% Depends only with delivery of a signal
+    ;A =:= processes        %% Depends only with spawn and exit
+    ;A =:= send_after
+    ;A =:= spawn            %% Depends only with processes/0
+    ;A =:= spawn_link       %% Depends only with processes/0
+    ;A =:= spawn_opt        %% Depends only with processes/0
+    ;A =:= start_timer
+    ;A =:= system_time
+    ;A =:= time
+    ;A =:= time_offset
+    ;A =:= timestamp
+    ;A =:= unique_integer
+    ->
+  true;
+safe_erlang(_) ->
+  false.
 
 %%------------------------------------------------------------------------------
 
