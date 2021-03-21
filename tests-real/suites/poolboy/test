@@ -1,7 +1,8 @@
 #!/bin/bash
 
+TOP_DIR=${TOP_DIR:-$(pwd)/../../..}
+CONCUERROR=${CONCUERROR:-$TOP_DIR/bin/concuerror}
 Out=concuerror_report.txt
-CONCUERROR=${CONCUERROR:-$(which concuerror)}
 
 . ../print_colors
 
